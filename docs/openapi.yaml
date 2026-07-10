@@ -1,0 +1,1780 @@
+openapi: 3.0.3
+info:
+  title: 海选投票 API
+  version: 1.0.0
+  description: 海选投票系统后端接口文档，包含用户登录、投票、礼物、支付等功能。
+paths:
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: 使用手机号和短信验证码登录，返回 JWT access/refresh token。
+      summary: 手机号登录
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneLoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneLoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneLoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/auth/profile/:
+    get:
+      operationId: auth_profile_retrieve
+      summary: 获取当前用户信息
+      tags:
+      - 认证
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: auth_profile_partial_update
+      summary: 更新用户信息
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfileUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfileUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfileUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/sms/send/:
+    post:
+      operationId: auth_sms_send_create
+      summary: 发送短信验证码
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendSMSCodeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendSMSCodeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendSMSCodeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh_create
+      description: 'Takes a refresh type JSON web token and returns an access type
+        JSON web
+
+        token if the refresh token is valid.'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/candidates/:
+    get:
+      operationId: candidates_list
+      summary: 获取候选人列表
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 候选人
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCandidateListList'
+          description: ''
+  /api/candidates/{id}/:
+    get:
+      operationId: candidates_retrieve
+      summary: 获取候选人详情（含照片）
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - 候选人
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateDetail'
+          description: ''
+  /api/candidates/applications/status/:
+    get:
+      operationId: candidates_applications_status_retrieve
+      description: 返回当前用户的报名状态与进度反馈，供前端展示审核进度。
+      summary: 查询我的报名进度
+      tags:
+      - 报名
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateApplicationStatus'
+          description: ''
+  /api/candidates/applications/submit/:
+    post:
+      operationId: candidates_applications_submit_create
+      description: 用户上传个人信息报名参加海选，提交后进入待审核状态。被驳回后可修改姓名、介绍后重新提交；头像和照片可不传，将保留上次内容。审核通过后自动创建候选人，展示在候选人列表中。
+      summary: 提交报名申请
+      tags:
+      - 报名
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 姓名
+                introduction:
+                  type: string
+                  description: 个人介绍
+                avatar:
+                  type: string
+                  format: binary
+                  description: 头像
+                photos:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: 展示照片（可多张）
+              required:
+              - name
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateApplication'
+          description: ''
+  /api/candidates/ranking/:
+    get:
+      operationId: candidates_ranking_list
+      description: 按热度值降序排列的排行榜。
+      summary: 候选人排行榜
+      tags:
+      - 候选人
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CandidateRanking'
+          description: ''
+  /api/config/public/:
+    get:
+      operationId: config_public_retrieve
+      description: 返回前端需要的公开配置项，如今日投票上限等。
+      summary: 获取公开配置
+      tags:
+      - 配置
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicConfig'
+          description: ''
+  /api/gifts/:
+    get:
+      operationId: gifts_list
+      summary: 获取礼物列表
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 礼物
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGiftList'
+          description: ''
+  /api/gifts/history/:
+    get:
+      operationId: gifts_history_list
+      summary: 我的礼物赠送记录
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 礼物
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGiftTransactionList'
+          description: ''
+  /api/gifts/send/:
+    post:
+      operationId: gifts_send_create
+      description: 使用账户余额购买礼物赠送给候选人，礼物热度值将累加到候选人热度。
+      summary: 赠送礼物
+      tags:
+      - 礼物
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendGiftRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendGiftRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendGiftRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GiftTransaction'
+          description: ''
+  /api/payments/dev-pay/:
+    post:
+      operationId: payments_dev_pay_create
+      description: 开发环境模拟支付成功。
+      summary: 模拟支付成功（仅开发环境）
+      tags:
+      - 支付
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevPayRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DevPayRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DevPayRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOrder'
+          description: ''
+  /api/payments/orders/:
+    get:
+      operationId: payments_orders_list
+      summary: 我的订单列表
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 支付
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPaymentOrderList'
+          description: ''
+  /api/payments/recharge/:
+    post:
+      operationId: payments_recharge_create
+      description: 创建充值订单并返回支付参数（微信/支付宝）。
+      summary: 创建充值订单
+      tags:
+      - 支付
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/votes/cast/:
+    post:
+      operationId: votes_cast_create
+      description: 每人每天可投票次数由后台配置（默认3票）。
+      summary: 为候选人投票
+      tags:
+      - 投票
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CastVoteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CastVoteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CastVoteRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/votes/history/:
+    get:
+      operationId: votes_history_list
+      summary: 我的投票记录
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 投票
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVoteList'
+          description: ''
+  /api/votes/status/:
+    get:
+      operationId: votes_status_retrieve
+      summary: 查询今日投票状态
+      tags:
+      - 投票
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteStatus'
+          description: ''
+  /auth/login/:
+    post:
+      operationId: auth_login_create_2
+      description: 使用手机号和短信验证码登录，返回 JWT access/refresh token。
+      summary: 手机号登录
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneLoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneLoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneLoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /auth/profile/:
+    get:
+      operationId: auth_profile_retrieve_2
+      summary: 获取当前用户信息
+      tags:
+      - 认证
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: auth_profile_partial_update_2
+      summary: 更新用户信息
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfileUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfileUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfileUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /auth/sms/send/:
+    post:
+      operationId: auth_sms_send_create_2
+      summary: 发送短信验证码
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendSMSCodeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendSMSCodeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendSMSCodeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh_create_2
+      description: 'Takes a refresh type JSON web token and returns an access type
+        JSON web
+
+        token if the refresh token is valid.'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /candidates/:
+    get:
+      operationId: candidates_list_2
+      summary: 获取候选人列表
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 候选人
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCandidateListList'
+          description: ''
+  /candidates/{id}/:
+    get:
+      operationId: candidates_retrieve_2
+      summary: 获取候选人详情（含照片）
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - 候选人
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateDetail'
+          description: ''
+  /candidates/applications/status/:
+    get:
+      operationId: candidates_applications_status_retrieve_2
+      description: 返回当前用户的报名状态与进度反馈，供前端展示审核进度。
+      summary: 查询我的报名进度
+      tags:
+      - 报名
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateApplicationStatus'
+          description: ''
+  /candidates/applications/submit/:
+    post:
+      operationId: candidates_applications_submit_create_2
+      description: 用户上传个人信息报名参加海选，提交后进入待审核状态。被驳回后可修改姓名、介绍后重新提交；头像和照片可不传，将保留上次内容。审核通过后自动创建候选人，展示在候选人列表中。
+      summary: 提交报名申请
+      tags:
+      - 报名
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 姓名
+                introduction:
+                  type: string
+                  description: 个人介绍
+                avatar:
+                  type: string
+                  format: binary
+                  description: 头像
+                photos:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: 展示照片（可多张）
+              required:
+              - name
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateApplication'
+          description: ''
+  /candidates/ranking/:
+    get:
+      operationId: candidates_ranking_list_2
+      description: 按热度值降序排列的排行榜。
+      summary: 候选人排行榜
+      tags:
+      - 候选人
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CandidateRanking'
+          description: ''
+  /config/public/:
+    get:
+      operationId: config_public_retrieve_2
+      description: 返回前端需要的公开配置项，如今日投票上限等。
+      summary: 获取公开配置
+      tags:
+      - 配置
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicConfig'
+          description: ''
+  /gifts/:
+    get:
+      operationId: gifts_list_2
+      summary: 获取礼物列表
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 礼物
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGiftList'
+          description: ''
+  /gifts/history/:
+    get:
+      operationId: gifts_history_list_2
+      summary: 我的礼物赠送记录
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 礼物
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGiftTransactionList'
+          description: ''
+  /gifts/send/:
+    post:
+      operationId: gifts_send_create_2
+      description: 使用账户余额购买礼物赠送给候选人，礼物热度值将累加到候选人热度。
+      summary: 赠送礼物
+      tags:
+      - 礼物
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendGiftRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendGiftRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendGiftRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GiftTransaction'
+          description: ''
+  /payments/dev-pay/:
+    post:
+      operationId: payments_dev_pay_create_2
+      description: 开发环境模拟支付成功。
+      summary: 模拟支付成功（仅开发环境）
+      tags:
+      - 支付
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevPayRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DevPayRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DevPayRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOrder'
+          description: ''
+  /payments/orders/:
+    get:
+      operationId: payments_orders_list_2
+      summary: 我的订单列表
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 支付
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPaymentOrderList'
+          description: ''
+  /payments/recharge/:
+    post:
+      operationId: payments_recharge_create_2
+      description: 创建充值订单并返回支付参数（微信/支付宝）。
+      summary: 创建充值订单
+      tags:
+      - 支付
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /votes/cast/:
+    post:
+      operationId: votes_cast_create_2
+      description: 每人每天可投票次数由后台配置（默认3票）。
+      summary: 为候选人投票
+      tags:
+      - 投票
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CastVoteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CastVoteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CastVoteRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /votes/history/:
+    get:
+      operationId: votes_history_list_2
+      summary: 我的投票记录
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 投票
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVoteList'
+          description: ''
+  /votes/status/:
+    get:
+      operationId: votes_status_retrieve_2
+      summary: 查询今日投票状态
+      tags:
+      - 投票
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteStatus'
+          description: ''
+components:
+  schemas:
+    CandidateApplication:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: 姓名
+          maxLength: 100
+        introduction:
+          type: string
+          title: 个人介绍
+        avatar:
+          type: string
+          format: uri
+          title: 头像
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateApplicationPhoto'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CandidateApplicationStatusEnum'
+          title: 审核状态
+        status_display:
+          type: string
+          readOnly: true
+        status_message:
+          type: string
+          readOnly: true
+        reject_reason:
+          type: string
+          title: 驳回原因
+        candidate_id:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 提交时间
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 更新时间
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 审核时间
+      required:
+      - avatar
+      - candidate_id
+      - created_at
+      - id
+      - name
+      - photos
+      - status_display
+      - status_message
+      - updated_at
+    CandidateApplicationPhoto:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        image:
+          type: string
+          format: uri
+          title: 照片
+        caption:
+          type: string
+          title: 说明
+          maxLength: 200
+        sort_order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 排序
+      required:
+      - id
+      - image
+    CandidateApplicationStatus:
+      type: object
+      properties:
+        has_application:
+          type: boolean
+        can_apply:
+          type: boolean
+        can_resubmit:
+          type: boolean
+        is_candidate:
+          type: boolean
+        resubmit_hint:
+          type: string
+        application:
+          allOf:
+          - $ref: '#/components/schemas/CandidateApplication'
+          nullable: true
+      required:
+      - application
+      - can_apply
+      - can_resubmit
+      - has_application
+      - is_candidate
+      - resubmit_hint
+    CandidateApplicationStatusEnum:
+      enum:
+      - pending
+      - approved
+      - rejected
+      type: string
+      description: '* `pending` - 待审核
+
+        * `approved` - 已通过
+
+        * `rejected` - 已驳回'
+    CandidateDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: 姓名
+          maxLength: 100
+        number:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 编号
+          description: 参赛编号
+        introduction:
+          type: string
+          title: 个人介绍
+        avatar:
+          type: string
+          format: uri
+          title: 头像
+        vote_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 投票数
+        heat_score:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 热度值
+          description: 投票+礼物转换的热度
+        is_active:
+          type: boolean
+          title: 是否参赛
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidatePhoto'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 更新时间
+      required:
+      - avatar
+      - created_at
+      - id
+      - name
+      - number
+      - photos
+      - updated_at
+    CandidateList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: 姓名
+          maxLength: 100
+        number:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 编号
+          description: 参赛编号
+        introduction:
+          type: string
+          title: 个人介绍
+        avatar:
+          type: string
+          format: uri
+          title: 头像
+        vote_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 投票数
+        heat_score:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 热度值
+          description: 投票+礼物转换的热度
+        is_active:
+          type: boolean
+          title: 是否参赛
+      required:
+      - avatar
+      - id
+      - name
+      - number
+    CandidatePhoto:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        image:
+          type: string
+          format: uri
+          title: 照片
+        caption:
+          type: string
+          title: 说明
+          maxLength: 200
+        sort_order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 排序
+      required:
+      - id
+      - image
+    CandidateRanking:
+      type: object
+      properties:
+        rank:
+          type: integer
+          readOnly: true
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: 姓名
+          maxLength: 100
+        number:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 编号
+          description: 参赛编号
+        avatar:
+          type: string
+          format: uri
+          title: 头像
+        vote_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 投票数
+        heat_score:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 热度值
+          description: 投票+礼物转换的热度
+      required:
+      - avatar
+      - id
+      - name
+      - number
+      - rank
+    CastVoteRequest:
+      type: object
+      properties:
+        candidate_id:
+          type: integer
+          description: 候选人 ID
+      required:
+      - candidate_id
+    CreateRechargePaymentMethodEnum:
+      enum:
+      - wechat
+      - alipay
+      type: string
+      description: '* `wechat` - 微信支付
+
+        * `alipay` - 支付宝'
+    CreateRechargeRequest:
+      type: object
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          description: 充值金额（元）
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/CreateRechargePaymentMethodEnum'
+          description: '支付方式
+
+
+            * `wechat` - 微信支付
+
+            * `alipay` - 支付宝'
+      required:
+      - amount
+      - payment_method
+    DevPayRequest:
+      type: object
+      properties:
+        order_no:
+          type: string
+          minLength: 1
+          description: 订单号
+      required:
+      - order_no
+    Gift:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: 礼物名称
+          maxLength: 100
+        icon:
+          type: string
+          format: uri
+          nullable: true
+          title: 礼物图标
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: 价格（元）
+        heat_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 热度值
+          description: 赠送后转换为候选人的热度
+        description:
+          type: string
+          title: 描述
+          maxLength: 255
+        is_active:
+          type: boolean
+          title: 是否上架
+        sort_order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 排序
+      required:
+      - heat_value
+      - id
+      - name
+      - price
+    GiftTransaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        gift:
+          type: integer
+          title: 礼物
+        gift_name:
+          type: string
+          readOnly: true
+        candidate:
+          type: integer
+          title: 接收候选人
+        candidate_name:
+          type: string
+          readOnly: true
+        quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 数量
+        total_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: 总价
+        total_heat:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 总热度值
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 赠送时间
+      required:
+      - candidate
+      - candidate_name
+      - created_at
+      - gift
+      - gift_name
+      - id
+      - total_heat
+      - total_price
+    OrderTypeEnum:
+      enum:
+      - recharge
+      - gift
+      type: string
+      description: '* `recharge` - 充值
+
+        * `gift` - 购买礼物'
+    PaginatedCandidateListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateList'
+    PaginatedGiftList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Gift'
+    PaginatedGiftTransactionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/GiftTransaction'
+    PaginatedPaymentOrderList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentOrder'
+    PaginatedVoteList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vote'
+    PatchedUserProfileUpdateRequest:
+      type: object
+      properties:
+        nickname:
+          type: string
+          title: 昵称
+          maxLength: 50
+        avatar:
+          type: string
+          format: binary
+          nullable: true
+          title: 头像
+    PaymentOrder:
+      type: object
+      properties:
+        order_no:
+          type: string
+          readOnly: true
+          title: 订单号
+        order_type:
+          allOf:
+          - $ref: '#/components/schemas/OrderTypeEnum'
+          readOnly: true
+          title: 订单类型
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/PaymentOrderPaymentMethodEnum'
+          readOnly: true
+          title: 支付方式
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: 金额
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PaymentOrderStatusEnum'
+          readOnly: true
+          title: 状态
+        paid_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: 支付时间
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 创建时间
+      required:
+      - amount
+      - created_at
+      - order_no
+      - order_type
+      - paid_at
+      - payment_method
+      - status
+    PaymentOrderPaymentMethodEnum:
+      enum:
+      - wechat
+      - alipay
+      - balance
+      type: string
+      description: '* `wechat` - 微信支付
+
+        * `alipay` - 支付宝
+
+        * `balance` - 余额支付'
+    PaymentOrderStatusEnum:
+      enum:
+      - pending
+      - paid
+      - failed
+      - cancelled
+      - refunded
+      type: string
+      description: '* `pending` - 待支付
+
+        * `paid` - 已支付
+
+        * `failed` - 支付失败
+
+        * `cancelled` - 已取消
+
+        * `refunded` - 已退款'
+    PhoneLoginRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          description: 手机号
+          maxLength: 11
+        code:
+          type: string
+          minLength: 1
+          description: 短信验证码
+          maxLength: 6
+      required:
+      - code
+      - phone
+    PublicConfig:
+      type: object
+      properties:
+        daily_vote_limit:
+          type: integer
+          description: 每日投票上限
+      required:
+      - daily_vote_limit
+    SendGiftRequest:
+      type: object
+      properties:
+        candidate_id:
+          type: integer
+          description: 候选人 ID
+        gift_id:
+          type: integer
+          description: 礼物 ID
+        quantity:
+          type: integer
+          minimum: 1
+          default: 1
+          description: 数量
+      required:
+      - candidate_id
+      - gift_id
+    SendSMSCodeRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          description: 手机号
+          maxLength: 11
+      required:
+      - phone
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        phone:
+          type: string
+          readOnly: true
+          nullable: true
+          title: 手机号
+        nickname:
+          type: string
+          readOnly: true
+          title: 昵称
+        avatar:
+          type: string
+          format: uri
+          nullable: true
+          readOnly: true
+          title: 头像
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: 账户余额
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 创建时间
+      required:
+      - avatar
+      - balance
+      - created_at
+      - id
+      - nickname
+      - phone
+    Vote:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        candidate:
+          type: integer
+          readOnly: true
+          title: 候选人
+        candidate_name:
+          type: string
+          readOnly: true
+        candidate_number:
+          type: integer
+          readOnly: true
+        vote_date:
+          type: string
+          format: date
+          readOnly: true
+          title: 投票日期
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 投票时间
+      required:
+      - candidate
+      - candidate_name
+      - candidate_number
+      - created_at
+      - id
+      - vote_date
+    VoteStatus:
+      type: object
+      properties:
+        daily_limit:
+          type: integer
+          description: 每日投票上限
+        today_votes:
+          type: integer
+          description: 今日已投票数
+        remaining_votes:
+          type: integer
+          description: 今日剩余票数
+      required:
+      - daily_limit
+      - remaining_votes
+      - today_votes
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+- name: 认证
+  description: 手机号登录与 JWT 鉴权
+- name: 候选人
+  description: 候选人信息与排行榜
+- name: 报名
+  description: 用户自主报名与审核进度查询
+- name: 投票
+  description: 投票相关接口
+- name: 礼物
+  description: 礼物购买与赠送
+- name: 支付
+  description: 微信支付与支付宝支付
+- name: 配置
+  description: 系统配置
