@@ -52,7 +52,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 | 投票 | `/api/votes/` | 投票状态、投票、投票记录 |
 | 礼物 | `/api/gifts/` | 礼物列表、赠送、赠送记录 |
 | 支付 | `/api/payments/` | 充值、订单、支付回调 |
-| 配置 | `/api/config/` | 公开系统配置 |
+| 配置 | `/api/config/` | 公开系统配置、OSS STS 上传凭证 |
 
 > 兼容无前缀访问（如 `/auth/login/`），推荐使用 `/api/` 前缀。
 
@@ -590,6 +590,13 @@ introduction=更新后的个人介绍
 
 ## 6. 配置模块 `/api/config/`
 
+| 接口 | 方法 | 鉴权 | 说明 |
+|------|------|------|------|
+| `/api/config/public/` | GET | 否 | 获取公开配置 |
+| `/api/config/oss/sts/` | GET | 是 | 获取 OSS 上传 STS 临时凭证 |
+
+### 6.1 获取公开配置
+
 - **URL**: `GET /api/config/public/`
 - **鉴权**: 不需要
 
@@ -600,6 +607,62 @@ introduction=更新后的个人介绍
   "daily_vote_limit": 3
 }
 ```
+
+---
+
+### 6.2 获取 OSS 上传 STS 临时凭证
+
+- **URL**: `GET /api/config/oss/sts/`
+- **鉴权**: 需要（Bearer Token）
+
+前端直传 OSS 前调用此接口，获取临时凭证后使用 [ali-oss](https://help.aliyun.com/document_detail/64041.html) 等 SDK 上传文件。
+
+**成功响应 (200):**
+
+```json
+{
+  "access_key_id": "STS.NUxxx",
+  "access_key_secret": "xxx",
+  "security_token": "CAISxxx",
+  "expiration": "2026-07-13T15:00:00Z",
+  "bucket": "aibaobendev",
+  "endpoint": "oss-cn-hangzhou.aliyuncs.com",
+  "region": "cn-hangzhou",
+  "upload_dir": "uploads/12/",
+  "base_url": "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com"
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `access_key_id` / `access_key_secret` / `security_token` | STS 临时凭证三要素 |
+| `expiration` | 凭证过期时间 |
+| `bucket` / `endpoint` / `region` | OSS 连接信息 |
+| `upload_dir` | 允许上传的目录前缀，文件 Key 须以此开头，如 `uploads/12/avatar.jpg` |
+| `base_url` | 上传成功后的文件访问基础 URL，完整地址为 `{base_url}/{object_key}` |
+
+**前端上传示例（ali-oss）:**
+
+```javascript
+// 1. 获取 STS 凭证
+const sts = await fetch('/api/config/oss/sts/', {
+  headers: { Authorization: `Bearer ${accessToken}` },
+}).then(r => r.json());
+
+// 2. 初始化 OSS 客户端并上传
+const client = new OSS({
+  region: sts.region,
+  accessKeyId: sts.access_key_id,
+  accessKeySecret: sts.access_key_secret,
+  stsToken: sts.security_token,
+  bucket: sts.bucket,
+});
+const objectKey = `${sts.upload_dir}avatar_${Date.now()}.jpg`;
+const result = await client.put(objectKey, file);
+const fileUrl = `${sts.base_url}/${objectKey}`;
+```
+
+> STS 凭证默认有效期 3600 秒，可在 `.env` 中通过 `OSS_STS_DURATION_SECONDS` 调整。凭证权限仅限当前用户目录下的上传与读取。
 
 ---
 

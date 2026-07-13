@@ -340,6 +340,22 @@ paths:
                 items:
                   $ref: '#/components/schemas/CandidateRanking'
           description: ''
+  /api/config/oss/sts/:
+    get:
+      operationId: config_oss_sts_retrieve
+      description: 前端直传 OSS 前调用此接口获取 STS 临时凭证。凭证仅允许向当前用户目录 `uploads/{user_id}/` 上传文件。
+      summary: 获取 OSS 上传 STS 临时凭证
+      tags:
+      - 配置
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OSSStsCredential'
+          description: ''
   /api/config/public/:
     get:
       operationId: config_public_retrieve
@@ -910,6 +926,22 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CandidateRanking'
+          description: ''
+  /config/oss/sts/:
+    get:
+      operationId: config_oss_sts_retrieve_2
+      description: 前端直传 OSS 前调用此接口获取 STS 临时凭证。凭证仅允许向当前用户目录 `uploads/{user_id}/` 上传文件。
+      summary: 获取 OSS 上传 STS 临时凭证
+      tags:
+      - 配置
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OSSStsCredential'
           description: ''
   /config/public/:
     get:
@@ -1568,6 +1600,46 @@ components:
       - id
       - total_heat
       - total_price
+    OSSStsCredential:
+      type: object
+      properties:
+        access_key_id:
+          type: string
+          description: STS 临时 AccessKey ID
+        access_key_secret:
+          type: string
+          description: STS 临时 AccessKey Secret
+        security_token:
+          type: string
+          description: STS SecurityToken
+        expiration:
+          type: string
+          description: 凭证过期时间
+        bucket:
+          type: string
+          description: OSS Bucket 名称
+        endpoint:
+          type: string
+          description: OSS Endpoint
+        region:
+          type: string
+          description: OSS 区域
+        upload_dir:
+          type: string
+          description: 允许上传的目录前缀
+        base_url:
+          type: string
+          description: 文件访问基础 URL
+      required:
+      - access_key_id
+      - access_key_secret
+      - base_url
+      - bucket
+      - endpoint
+      - expiration
+      - region
+      - security_token
+      - upload_dir
     OrderTypeEnum:
       enum:
       - recharge
