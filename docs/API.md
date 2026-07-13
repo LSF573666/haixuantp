@@ -156,7 +156,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 }
 ```
 
-> 注册成功后自动登录，返回 JWT Token。若未设置密码，可后续通过「设置/修改登录密码」接口补充。
+> 注册须先获取短信验证码。注册成功后自动登录，返回 JWT Token。若未设置密码，可后续通过「设置/修改登录密码」接口补充（同样需短信验证码）。
 
 ---
 
@@ -228,22 +228,21 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 - **URL**: `POST /api/auth/password/set/`
 - **鉴权**: 需要
 
-**首次设置密码（请求体）:**
+**流程**: 先调用 `POST /api/auth/sms/send/` 向当前账号手机号发送验证码，再提交验证码和新密码。
+
+**请求体:**
 
 ```json
 {
+  "code": "123456",
   "password": "your_new_password"
 }
 ```
 
-**修改密码（请求体）:**
-
-```json
-{
-  "old_password": "your_old_password",
-  "password": "your_new_password"
-}
-```
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `code` | string | 是 | 短信验证码（需先调用发送验证码接口，发送到当前登录用户手机号） |
+| `password` | string | 是 | 新密码 |
 
 **成功响应 (200):**
 
@@ -253,7 +252,17 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 }
 ```
 
-> 密码须满足 Django 默认强度要求（至少 8 位，不能过于常见等）。用户信息中的 `has_password` 字段表示是否已设置登录密码。
+**错误响应 (400):**
+
+验证码错误:
+
+```json
+{
+  "detail": "验证码错误或已过期"
+}
+```
+
+> 首次设置和修改密码均须短信验证码。密码须满足 Django 默认强度要求（至少 8 位，不能过于常见等）。用户信息中的 `has_password` 字段表示是否已设置登录密码。
 
 ---
 

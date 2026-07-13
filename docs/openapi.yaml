@@ -67,7 +67,7 @@ paths:
   /api/auth/password/set/:
     post:
       operationId: auth_password_set_create
-      description: 首次设置只需提供新密码；已设置过密码时需提供原密码。
+      description: 需先向当前账号手机号发送验证码，验证通过后方可设置或修改密码。
       summary: 设置/修改登录密码
       tags:
       - 认证
@@ -638,7 +638,7 @@ paths:
   /auth/password/set/:
     post:
       operationId: auth_password_set_create_2
-      description: 首次设置只需提供新密码；已设置过密码时需提供原密码。
+      description: 需先向当前账号手机号发送验证码，验证通过后方可设置或修改密码。
       summary: 设置/修改登录密码
       tags:
       - 认证
@@ -1849,12 +1849,11 @@ components:
     SetPasswordRequest:
       type: object
       properties:
-        old_password:
+        code:
           type: string
-          writeOnly: true
           minLength: 1
-          description: 原密码（修改密码时必填）
-          maxLength: 128
+          description: 短信验证码
+          maxLength: 6
         password:
           type: string
           writeOnly: true
@@ -1862,6 +1861,7 @@ components:
           description: 新密码
           maxLength: 128
       required:
+      - code
       - password
     TokenRefresh:
       type: object
