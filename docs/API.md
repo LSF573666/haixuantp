@@ -17,7 +17,7 @@
 Authorization: Bearer <access_token>
 ```
 
-JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头像）使用 `multipart/form-data`。
+JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（OSS 直传后传 `avatar_url`）或 `multipart/form-data`（文件上传）。
 
 ### 统一错误响应
 
@@ -310,7 +310,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 
 - **URL**: `POST /api/candidates/applications/submit/`
 - **鉴权**: 需要
-- **Content-Type**: `multipart/form-data`
+- **Content-Type**: `multipart/form-data` 或 `application/json`
 
 **请求字段:**
 
@@ -318,8 +318,27 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 |------|------|------|------|
 | `name` | string | 是 | 姓名 |
 | `introduction` | string | 否 | 个人介绍 |
-| `avatar` | file | 首次必填 | 头像图片；驳回后重新提交可不传，保留上次头像 |
+| `avatar` | file | 首次二选一 | 头像文件上传（与 `avatar_url` 二选一） |
+| `avatar_url` | string | 首次二选一 | OSS 直传后的头像完整 URL，须在当前用户目录 `uploads/{user_id}/` 下 |
 | `photos` | file[] | 否 | 展示照片，可上传多张；驳回后重新提交可不传，保留上次照片 |
+
+**JSON 请求示例（OSS 直传后）:**
+
+```json
+{
+  "name": "张三",
+  "introduction": "热爱舞台，期待展示自我",
+  "avatar_url": "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jpg"
+}
+```
+
+**multipart 请求示例（OSS 直传后）:**
+
+```
+name=张三
+introduction=热爱舞台
+avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jpg
+```
 
 **成功响应 (201):**
 

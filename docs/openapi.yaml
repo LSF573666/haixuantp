@@ -284,7 +284,8 @@ paths:
   /api/candidates/applications/submit/:
     post:
       operationId: candidates_applications_submit_create
-      description: 用户上传个人信息报名参加海选，提交后进入待审核状态。被驳回后可修改姓名、介绍后重新提交；头像和照片可不传，将保留上次内容。审核通过后自动创建候选人，展示在候选人列表中。
+      description: 用户提交个人信息报名参加海选，提交后进入待审核状态。头像可通过 `avatar` 文件上传，或通过 `avatar_url`
+        传 OSS 直传后的 URL。被驳回后可修改姓名、介绍后重新提交；头像和照片可不传，将保留上次内容。审核通过后自动创建候选人，展示在候选人列表中。
       summary: 提交报名申请
       tags:
       - 报名
@@ -303,7 +304,10 @@ paths:
                 avatar:
                   type: string
                   format: binary
-                  description: 头像
+                  description: 头像文件（与 avatar_url 二选一）
+                avatar_url:
+                  type: string
+                  description: OSS 直传后的头像 URL
                 photos:
                   type: array
                   items:
@@ -312,6 +316,22 @@ paths:
                   description: 展示照片（可多张）
               required:
               - name
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 姓名
+                introduction:
+                  type: string
+                  description: 个人介绍
+                avatar_url:
+                  type: string
+                  description: OSS 直传后的头像 URL
+              required:
+              - name
+              - avatar_url
       security:
       - jwtAuth: []
       responses:
@@ -871,7 +891,8 @@ paths:
   /candidates/applications/submit/:
     post:
       operationId: candidates_applications_submit_create_2
-      description: 用户上传个人信息报名参加海选，提交后进入待审核状态。被驳回后可修改姓名、介绍后重新提交；头像和照片可不传，将保留上次内容。审核通过后自动创建候选人，展示在候选人列表中。
+      description: 用户提交个人信息报名参加海选，提交后进入待审核状态。头像可通过 `avatar` 文件上传，或通过 `avatar_url`
+        传 OSS 直传后的 URL。被驳回后可修改姓名、介绍后重新提交；头像和照片可不传，将保留上次内容。审核通过后自动创建候选人，展示在候选人列表中。
       summary: 提交报名申请
       tags:
       - 报名
@@ -890,7 +911,10 @@ paths:
                 avatar:
                   type: string
                   format: binary
-                  description: 头像
+                  description: 头像文件（与 avatar_url 二选一）
+                avatar_url:
+                  type: string
+                  description: OSS 直传后的头像 URL
                 photos:
                   type: array
                   items:
@@ -899,6 +923,22 @@ paths:
                   description: 展示照片（可多张）
               required:
               - name
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 姓名
+                introduction:
+                  type: string
+                  description: 个人介绍
+                avatar_url:
+                  type: string
+                  description: OSS 直传后的头像 URL
+              required:
+              - name
+              - avatar_url
       security:
       - jwtAuth: []
       responses:
