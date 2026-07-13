@@ -63,7 +63,9 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 | 接口 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
 | `/api/auth/sms/send/` | POST | 否 | 发送短信验证码 |
-| `/api/auth/login/` | POST | 否 | 手机号登录 |
+| `/api/auth/login/` | POST | 否 | 手机号验证码登录 |
+| `/api/auth/login/password/` | POST | 否 | 手机号密码登录 |
+| `/api/auth/password/set/` | POST | 是 | 设置/修改登录密码 |
 | `/api/auth/token/refresh/` | POST | 否 | 刷新 Token |
 | `/api/auth/profile/` | GET / PATCH | 是 | 获取/更新用户信息 |
 
@@ -119,6 +121,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
     "nickname": "",
     "avatar": null,
     "balance": "0.00",
+    "has_password": false,
     "created_at": "2026-07-09 14:00:00"
   },
   "is_new_user": true
@@ -127,7 +130,69 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 
 ---
 
-### 1.3 刷新 Token
+### 1.3 密码登录
+
+- **URL**: `POST /api/auth/login/password/`
+- **鉴权**: 不需要
+
+**请求体:**
+
+```json
+{
+  "phone": "13800138000",
+  "password": "your_password"
+}
+```
+
+**成功响应 (200):** 与验证码登录相同，返回 `access`、`refresh`、`user`、`is_new_user`（密码登录时 `is_new_user` 恒为 `false`）。
+
+**错误响应 (400):**
+
+```json
+{
+  "detail": "手机号或密码错误"
+}
+```
+
+> 需先通过验证码登录并完成密码设置后，方可使用密码登录。
+
+---
+
+### 1.4 设置/修改登录密码
+
+- **URL**: `POST /api/auth/password/set/`
+- **鉴权**: 需要
+
+**首次设置密码（请求体）:**
+
+```json
+{
+  "password": "your_new_password"
+}
+```
+
+**修改密码（请求体）:**
+
+```json
+{
+  "old_password": "your_old_password",
+  "password": "your_new_password"
+}
+```
+
+**成功响应 (200):**
+
+```json
+{
+  "message": "密码设置成功"
+}
+```
+
+> 密码须满足 Django 默认强度要求（至少 8 位，不能过于常见等）。用户信息中的 `has_password` 字段表示是否已设置登录密码。
+
+---
+
+### 1.5 刷新 Token
 
 - **URL**: `POST /api/auth/token/refresh/`
 
@@ -141,7 +206,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 
 ---
 
-### 1.4 获取/更新用户信息
+### 1.6 获取/更新用户信息
 
 - **URL**: `GET /api/auth/profile/` | `PATCH /api/auth/profile/`
 - **鉴权**: 需要

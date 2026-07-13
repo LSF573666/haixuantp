@@ -34,6 +34,65 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/auth/login/password/:
+    post:
+      operationId: auth_login_password_create
+      description: 使用手机号和密码登录，需已设置登录密码。返回 JWT access/refresh token。
+      summary: 密码登录
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordLoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordLoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordLoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/auth/password/set/:
+    post:
+      operationId: auth_password_set_create
+      description: 首次设置只需提供新密码；已设置过密码时需提供原密码。
+      summary: 设置/修改登录密码
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SetPasswordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SetPasswordRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/auth/profile/:
     get:
       operationId: auth_profile_retrieve
@@ -508,6 +567,65 @@ paths:
       security:
       - jwtAuth: []
       - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /auth/login/password/:
+    post:
+      operationId: auth_login_password_create_2
+      description: 使用手机号和密码登录，需已设置登录密码。返回 JWT access/refresh token。
+      summary: 密码登录
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordLoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordLoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordLoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /auth/password/set/:
+    post:
+      operationId: auth_password_set_create_2
+      description: 首次设置只需提供新密码；已设置过密码时需提供原密码。
+      summary: 设置/修改登录密码
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SetPasswordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SetPasswordRequest'
+        required: true
+      security:
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -1513,6 +1631,23 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Vote'
+    PasswordLoginRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          description: 手机号
+          maxLength: 11
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          description: 登录密码
+          maxLength: 128
+      required:
+      - password
+      - phone
     PatchedUserProfileUpdateRequest:
       type: object
       properties:
@@ -1651,6 +1786,23 @@ components:
           maxLength: 11
       required:
       - phone
+    SetPasswordRequest:
+      type: object
+      properties:
+        old_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          description: 原密码（修改密码时必填）
+          maxLength: 128
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          description: 新密码
+          maxLength: 128
+      required:
+      - password
     TokenRefresh:
       type: object
       properties:
@@ -1697,6 +1849,9 @@ components:
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
           readOnly: true
           title: 账户余额
+        has_password:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -1706,6 +1861,7 @@ components:
       - avatar
       - balance
       - created_at
+      - has_password
       - id
       - nickname
       - phone
