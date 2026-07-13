@@ -46,7 +46,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 
 | 模块 | 路径前缀 | 说明 |
 |------|----------|------|
-| 认证 | `/api/auth/` | 短信登录、Token 刷新、用户信息 |
+| 认证 | `/api/auth/` | 短信注册/登录、Token 刷新、用户信息 |
 | 候选人 | `/api/candidates/` | 候选人列表、详情、排行榜 |
 | 报名 | `/api/candidates/applications/` | 自主报名、查询审核进度 |
 | 投票 | `/api/votes/` | 投票状态、投票、投票记录 |
@@ -63,6 +63,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 | 接口 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
 | `/api/auth/sms/send/` | POST | 否 | 发送短信验证码 |
+| `/api/auth/register/` | POST | 否 | 新用户注册 |
 | `/api/auth/login/` | POST | 否 | 手机号验证码登录 |
 | `/api/auth/login/password/` | POST | 否 | 手机号密码登录 |
 | `/api/auth/password/set/` | POST | 是 | 设置/修改登录密码 |
@@ -95,7 +96,71 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 
 ---
 
-### 1.2 手机号登录
+### 1.2 新用户注册
+
+- **URL**: `POST /api/auth/register/`
+- **鉴权**: 不需要
+
+**请求体:**
+
+```json
+{
+  "phone": "13800138000",
+  "code": "123456",
+  "nickname": "新用户",
+  "password": "your_password"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `phone` | string | 是 | 手机号 |
+| `code` | string | 是 | 短信验证码（需先调用发送验证码接口） |
+| `nickname` | string | 否 | 昵称 |
+| `password` | string | 否 | 登录密码，注册时可直接设置 |
+
+**成功响应 (201):**
+
+```json
+{
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "user": {
+    "id": 1,
+    "phone": "13800138000",
+    "nickname": "新用户",
+    "avatar": null,
+    "balance": "0.00",
+    "has_password": true,
+    "created_at": "2026-07-13 10:00:00"
+  },
+  "is_new_user": true
+}
+```
+
+**错误响应 (400):**
+
+手机号已注册:
+
+```json
+{
+  "phone": ["该手机号已注册"]
+}
+```
+
+验证码错误:
+
+```json
+{
+  "detail": "验证码错误或已过期"
+}
+```
+
+> 注册成功后自动登录，返回 JWT Token。若未设置密码，可后续通过「设置/修改登录密码」接口补充。
+
+---
+
+### 1.3 手机号登录
 
 - **URL**: `POST /api/auth/login/`
 - **鉴权**: 不需要
@@ -130,7 +195,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 
 ---
 
-### 1.3 密码登录
+### 1.4 密码登录
 
 - **URL**: `POST /api/auth/login/password/`
 - **鉴权**: 不需要
@@ -158,7 +223,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 
 ---
 
-### 1.4 设置/修改登录密码
+### 1.5 设置/修改登录密码
 
 - **URL**: `POST /api/auth/password/set/`
 - **鉴权**: 需要
@@ -192,7 +257,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 
 ---
 
-### 1.5 刷新 Token
+### 1.6 刷新 Token
 
 - **URL**: `POST /api/auth/token/refresh/`
 
@@ -206,7 +271,7 @@ JSON 请求使用 `Content-Type: application/json`；上传文件（如报名头
 
 ---
 
-### 1.6 获取/更新用户信息
+### 1.7 获取/更新用户信息
 
 - **URL**: `GET /api/auth/profile/` | `PATCH /api/auth/profile/`
 - **鉴权**: 需要

@@ -133,6 +133,36 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
           description: ''
+  /api/auth/register/:
+    post:
+      operationId: auth_register_create
+      description: 使用手机号和短信验证码注册新账号，可选设置昵称和登录密码。注册成功后自动登录并返回 JWT。
+      summary: 新用户注册
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/auth/sms/send/:
     post:
       operationId: auth_sms_send_create
@@ -673,6 +703,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+          description: ''
+  /auth/register/:
+    post:
+      operationId: auth_register_create_2
+      description: 使用手机号和短信验证码注册新账号，可选设置昵称和登录密码。注册成功后自动登录并返回 JWT。
+      summary: 新用户注册
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
           description: ''
   /auth/sms/send/:
     post:
@@ -1850,7 +1910,7 @@ components:
           readOnly: true
           title: 账户余额
         has_password:
-          type: string
+          type: boolean
           readOnly: true
         created_at:
           type: string
@@ -1864,6 +1924,34 @@ components:
       - has_password
       - id
       - nickname
+      - phone
+    UserRegisterRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          description: 手机号
+          maxLength: 11
+        code:
+          type: string
+          minLength: 1
+          description: 短信验证码
+          maxLength: 6
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          description: 登录密码（可选，注册时可直接设置）
+          maxLength: 128
+        nickname:
+          type: string
+          minLength: 1
+          default: ''
+          description: 昵称
+          maxLength: 50
+      required:
+      - code
       - phone
     Vote:
       type: object
