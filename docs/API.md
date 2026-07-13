@@ -303,10 +303,10 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 | 接口 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
-| `/api/candidates/applications/submit/` | POST | 是 | 提交/重新提交报名 |
+| `/api/candidates/applications/submit/` | POST | 是 | 提交报名 / 修改个人资料 |
 | `/api/candidates/applications/status/` | GET | 是 | 查询我的报名进度 |
 
-### 2.1.1 提交报名申请
+### 2.1.1 提交报名 / 修改个人资料
 
 - **URL**: `POST /api/candidates/applications/submit/`
 - **鉴权**: 需要
@@ -320,7 +320,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `introduction` | string | 否 | 个人介绍 |
 | `avatar` | file | 首次二选一 | 头像文件上传（与 `avatar_url` 二选一） |
 | `avatar_url` | string | 首次二选一 | OSS 直传后的头像完整 URL，须在当前用户目录 `uploads/{user_id}/` 下 |
-| `photos` | file[] | 否 | 展示照片，可上传多张；驳回后重新提交可不传，保留上次照片 |
+| `photos` | file[] | 否 | 展示照片，可上传多张；重新提交可不传，保留上次照片 |
 
 **JSON 请求示例（OSS 直传后）:**
 
@@ -370,10 +370,12 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jp
 **业务规则:**
 
 - 每位用户同时只能有一条待审核申请
-- 审核通过后不可重复报名，自动创建候选人并展示在候选人列表/排行榜中
+- 用户可随时修改姓名、介绍、头像或照片，每次提交后均需后台重新审核
+- 首次审核通过后自动创建候选人；后续资料修改审核通过后更新已有候选人信息
+- 审核期间及驳回后，候选人列表仍展示上次已通过的资料
 - 被驳回后可修改资料重新提交；头像和照片可不传，将保留上次内容
 
-**重新提交（驳回后）请求示例:**
+**重新提交请求示例:**
 
 仅修改姓名和介绍，无需重新上传头像/照片：
 
@@ -382,11 +384,19 @@ name=李四
 introduction=更新后的个人介绍
 ```
 
+**已成为候选人后修改资料示例:**
+
+```
+name=李四
+introduction=更新后的个人介绍
+avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avatar.jpg
+```
+
 **错误响应 (400):**
 
 ```json
 {
-  "detail": "您已有待审核的报名申请，请耐心等待审核结果"
+  "detail": "您已有待审核的资料修改，请耐心等待审核结果"
 }
 ```
 
@@ -424,9 +434,9 @@ introduction=更新后的个人介绍
 }
 ```
 
-**审核通过时** `status` 为 `approved`，`is_candidate` 为 `true`，`candidate_id` 返回关联的候选人 ID，该候选人会出现在 `/api/candidates/` 列表和排行榜中。
+**审核通过时** `status` 为 `approved`，`is_candidate` 为 `true`，`can_apply` 和 `can_resubmit` 为 `true`，`resubmit_hint` 为 `"可修改姓名、介绍、头像或照片，提交后需后台重新审核"`，`candidate_id` 返回关联的候选人 ID，该候选人会出现在 `/api/candidates/` 列表和排行榜中。
 
-**审核驳回时** `status` 为 `rejected`，`can_apply` 和 `can_resubmit` 为 `true`，`resubmit_hint` 为 `"资料被驳回，请修改姓名、介绍或照片后重新提交"`，`status_message` 包含驳回原因。
+**审核驳回时** `status` 为 `rejected`，`can_apply` 和 `can_resubmit` 为 `true`。若用户此前已是候选人，`is_candidate` 仍为 `true`，候选人列表继续展示上次已通过的资料。`resubmit_hint` 为 `"资料被驳回，请修改姓名、介绍或照片后重新提交"`，`status_message` 包含驳回原因。
 
 **审核驳回响应示例:**
 
@@ -452,10 +462,10 @@ introduction=更新后的个人介绍
 ```json
 {
   "has_application": true,
-  "can_apply": false,
-  "can_resubmit": false,
+  "can_apply": true,
+  "can_resubmit": true,
   "is_candidate": true,
-  "resubmit_hint": "",
+  "resubmit_hint": "可修改姓名、介绍、头像或照片，提交后需后台重新审核",
   "application": {
     "status": "approved",
     "status_display": "已通过",
@@ -482,9 +492,9 @@ introduction=更新后的个人介绍
 
 | status | status_display | 说明 |
 |--------|----------------|------|
-| `pending` | 待审核 | 已提交，等待后台审核 |
-| `approved` | 已通过 | 审核通过，已创建候选人 |
-| `rejected` | 已驳回 | 审核未通过，可重新提交 |
+| `pending` | 待审核 | 已提交或修改资料，等待后台审核 |
+| `approved` | 已通过 | 审核通过；已成为候选人，可继续修改资料 |
+| `rejected` | 已驳回 | 审核未通过，可修改后重新提交 |
 
 ---
 
