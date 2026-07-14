@@ -71,7 +71,8 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `/api/auth/profile/` | GET / PATCH | 是 | 获取/更新用户信息 |
 | `/api/auth/identity/status/` | GET | 是 | 查询实人认证状态 |
 | `/api/auth/identity/face/init/` | POST | 是 | 发起金融级实人认证 |
-| `/api/auth/identity/face/confirm/` | POST | 是 | 确认金融级实人认证结果 |
+| `/api/auth/identity/face/confirm/` | POST | 是 | 确认金融级实人认证结果（前端兜底） |
+| `/api/auth/identity/face/notify/` | GET | 否 | 阿里云刷脸结果服务端回调 |
 
 ### 1.1 发送短信验证码
 
@@ -371,7 +372,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 }
 ```
 
-用户完成客户端刷脸后，前端调用此接口；服务端通过 `DescribeFaceVerify` 查询结果，通过后写入姓名/身份证号，并设 `registration_ready=true`。
+用户完成客户端刷脸后，前端可调用此接口；服务端通过 `DescribeFaceVerify` 查询结果，通过后写入姓名/身份证号，并设 `registration_ready=true`。
+
+若已配置服务端回调（见下方环境变量），刷脸完成后阿里云也会主动通知本服务自动落库；前端仍建议在回跳后调用本接口或轮询 `identity/status` 作为兜底。
 
 **认证完成响应示例:**
 
@@ -400,12 +403,28 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `ALIYUN_FACE_VERIFY_PRODUCT_CODE` | 认证方案：`LR_FR`（App）、`ID_PRO`（H5实人）、`PV_FV`（H5活体） |
 | `ALIYUN_FACE_VERIFY_MODEL` | H5 `ID_PRO` 时使用，默认 `LIVENESS` |
 | `ALIYUN_FACE_VERIFY_RETURN_URL` | H5 默认回跳地址（请求未传 `return_url` 时使用） |
+| `ALIYUN_FACE_VERIFY_CALLBACK_URL` | 服务端回调地址，**必须公网 https**，如 `https://your-domain.com/api/auth/identity/face/notify/` |
+| `ALIYUN_FACE_VERIFY_CALLBACK_TOKEN` | 回调防伪 Token，回调时校验 |
+
+#### 1.8.4 刷脸结果服务端回调
+
+- **URL**: `GET /api/auth/identity/face/notify/`
+- **鉴权**: 否（阿里云服务端回调）
+
+阿里云在认证完成（通过或失败）后 GET 回调，示例：
+
+```
+GET /api/auth/identity/face/notify/?callbackToken=xxx&certifyId=yyy&passed=200
+```
+
+服务端校验 Token 后调用 `DescribeFaceVerify` 确认，自动写入用户实人认证状态，并返回 HTTP 200。
 
 **阿里云控制台配置（生产环境）:**
 
 1. 开通「金融级实人认证」
 2. 添加认证场景，获取 **SceneId**
 3. RAM 授权：建议系统策略 `AliyunAntCloudAuthFullAccess`（或至少 `InitFaceVerify`、`DescribeFaceVerify`）
+4. 配置可公网访问的 `ALIYUN_FACE_VERIFY_CALLBACK_URL`（https）
 
 ---
 
@@ -478,7 +497,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `introduction` | string | 否 | 个人介绍 |
 | `avatar` | file | 首次二选一 | 头像文件上传（与 `avatar_url` 二选一） |
 | `avatar_url` | string | 首次二选一 | OSS 直传后的头像完整 URL，须在当前用户目录 `uploads/{user_id}/` 下 |
-| `photos` | file[] | 否 | 展示照片，可上传多张；重新提交可不传，保留上次照片 |
+| `photos` | file[] | 否 | 展示照片，最多 9 张；重新提交可不传，保留上次照片 |
 
 **JSON 请求示例（OSS 直传后）:**
 
