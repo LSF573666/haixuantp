@@ -69,10 +69,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `/api/auth/password/set/` | POST | 是 | 设置/修改登录密码 |
 | `/api/auth/token/refresh/` | POST | 否 | 刷新 Token |
 | `/api/auth/profile/` | GET / PATCH | 是 | 获取/更新用户信息 |
-| `/api/auth/identity/verify/` | POST | 是 | 实名认证（姓名+身份证号） |
-| `/api/auth/identity/status/` | GET | 是 | 查询实名/刷脸认证状态 |
-| `/api/auth/identity/face/init/` | POST | 是 | 发起刷脸活体认证 |
-| `/api/auth/identity/face/confirm/` | POST | 是 | 确认刷脸活体认证结果 |
+| `/api/auth/identity/status/` | GET | 是 | 查询实人认证状态 |
+| `/api/auth/identity/face/init/` | POST | 是 | 发起金融级实人认证 |
+| `/api/auth/identity/face/confirm/` | POST | 是 | 确认金融级实人认证结果 |
 
 ### 1.1 发送短信验证码
 
@@ -291,59 +290,11 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 ---
 
-### 1.8 实名认证与刷脸活体
+### 1.8 金融级实人认证
 
-报名参选前须完成两步认证：
+报名参选前须完成一次金融级实人认证：提交**真实姓名 + 身份证号**，再完成刷脸活体（`InitFaceVerify` + `DescribeFaceVerify`）。姓名与证件号会随刷脸请求提交给阿里云比对，无需单独二要素接口。
 
-1. **实名认证**：姓名 + 身份证号二要素核验（`Id2MetaVerify`）
-2. **刷脸活体**：金融级刷脸活体检测（`InitFaceVerify` + `DescribeFaceVerify`）
-
-#### 1.8.1 提交实名认证
-
-- **URL**: `POST /api/auth/identity/verify/`
-- **鉴权**: 需要
-
-**请求体:**
-
-```json
-{
-  "real_name": "张三",
-  "id_card_number": "110101199001011234"
-}
-```
-
-**成功响应 (200):**
-
-```json
-{
-  "is_identity_verified": true,
-  "is_face_verified": false,
-  "registration_ready": false,
-  "real_name_masked": "张*",
-  "id_card_number_masked": "110101********1234",
-  "identity_verified_at": "2026-07-13 15:00:00",
-  "face_verified_at": null,
-  "identity_hint": "",
-  "face_hint": "请完成刷脸活体认证后再报名"
-}
-```
-
-**业务规则:**
-
-- 每位用户仅可认证一次，认证后不可修改
-- 同一身份证号不可绑定多个账号
-- 姓名与身份证号须与权威数据源一致
-- 实名通过后还需完成刷脸活体，`registration_ready=true` 方可报名
-
-**错误响应 (400):**
-
-```json
-{
-  "detail": "姓名与身份证号不一致，请核对后重试"
-}
-```
-
-#### 1.8.2 查询认证状态
+#### 1.8.1 查询认证状态
 
 - **URL**: `GET /api/auth/identity/status/`
 - **鉴权**: 需要
@@ -359,20 +310,24 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
   "id_card_number_masked": "",
   "identity_verified_at": null,
   "face_verified_at": null,
-  "identity_hint": "报名前需先完成实名认证（姓名+身份证号）",
-  "face_hint": "请先完成实名认证后再进行刷脸活体认证"
+  "identity_hint": "报名前需完成实人认证（姓名+身份证号+刷脸）",
+  "face_hint": "请完成实人认证（姓名+身份证号+刷脸）后再报名"
 }
 ```
 
-#### 1.8.3 发起刷脸活体认证
+> `is_identity_verified` 与 `is_face_verified` 在刷脸通过后同时为 `true`（兼容旧字段）。
+
+#### 1.8.2 发起金融级实人认证
 
 - **URL**: `POST /api/auth/identity/face/init/`
-- **鉴权**: 需要（须已完成实名认证）
+- **鉴权**: 需要
 
 **请求体:**
 
 ```json
 {
+  "real_name": "张三",
+  "id_card_number": "110101199001011234",
   "meta_info": "{\"zimVer\":\"3.0.0\",\"appVersion\":\"1.0.0\"}",
   "return_url": "https://your-frontend.com/face-verify/callback"
 }
@@ -380,6 +335,8 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
+| `real_name` | string | 是 | 真实姓名 |
+| `id_card_number` | string | 是 | 身份证号 |
 | `meta_info` | string | 是 | 客户端 SDK 调用 `getMetaInfo()` 获取的环境参数 |
 | `return_url` | string | 否 | H5 刷脸完成后的回跳地址；App 接入可不传 |
 
@@ -396,7 +353,12 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 - **App 接入**：用 `certify_id` 唤起阿里云客户端 SDK 完成刷脸
 - **H5 接入**：跳转 `certify_url` 完成刷脸，`return_url` 为完成后回跳地址
 
-#### 1.8.4 确认刷脸活体认证结果
+**业务规则:**
+
+- 每位用户仅可认证一次，认证后不可修改
+- 同一身份证号不可绑定多个已认证账号
+
+#### 1.8.3 确认金融级实人认证结果
 
 - **URL**: `POST /api/auth/identity/face/confirm/`
 - **鉴权**: 需要
@@ -409,9 +371,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 }
 ```
 
-用户完成客户端刷脸后，前端调用此接口；服务端通过 `DescribeFaceVerify` 查询结果，通过后 `registration_ready=true`。
+用户完成客户端刷脸后，前端调用此接口；服务端通过 `DescribeFaceVerify` 查询结果，通过后写入姓名/身份证号，并设 `registration_ready=true`。
 
-**认证全部完成响应示例:**
+**认证完成响应示例:**
 
 ```json
 {
@@ -421,7 +383,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
   "real_name_masked": "张*",
   "id_card_number_masked": "110101********1234",
   "identity_verified_at": "2026-07-13 15:00:00",
-  "face_verified_at": "2026-07-13 15:02:00",
+  "face_verified_at": "2026-07-13 15:00:00",
   "identity_hint": "",
   "face_hint": ""
 }
@@ -431,7 +393,6 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 | 变量 | 说明 |
 |------|------|
-| `IDENTITY_DEV_MODE` | `True` 时跳过二要素核验（开发环境） |
 | `FACE_VERIFY_DEV_MODE` | `True` 时跳过刷脸核验（开发环境） |
 | `ALIYUN_IDENTITY_ACCESS_KEY_ID` | AccessKey，默认可复用短信 AK |
 | `ALIYUN_IDENTITY_ACCESS_KEY_SECRET` | AccessKey Secret |
@@ -444,8 +405,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 1. 开通「金融级实人认证」
 2. 添加认证场景，获取 **SceneId**
-3. RAM 授权：`yundun-cloudauth:InitFaceVerify`、`yundun-cloudauth:DescribeFaceVerify`
-4. 二要素仍需授权：`yundun-cloudauth:Id2MetaVerify`
+3. RAM 授权：建议系统策略 `AliyunAntCloudAuthFullAccess`（或至少 `InitFaceVerify`、`DescribeFaceVerify`）
 
 ---
 
@@ -571,7 +531,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jp
 
 **业务规则:**
 
-- **报名前须先完成实名认证和刷脸活体认证**
+- **报名前须先完成金融级实人认证（姓名+身份证号+刷脸）**
 - 每位用户同时只能有一条待审核申请
 - 用户可随时修改姓名、性别、介绍、头像或照片，每次提交后均需后台重新审核
 - 首次审核通过后自动创建候选人；后续资料修改审核通过后更新已有候选人信息
@@ -601,13 +561,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 
 ```json
 {
-  "detail": "请先完成刷脸活体认证后再报名"
-}
-```
-
-```json
-{
-  "detail": "请先完成实名认证后再报名"
+  "detail": "请先完成实人认证（姓名+身份证号+刷脸）后再报名"
 }
 ```
 
@@ -633,7 +587,10 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
   "can_resubmit": false,
   "is_candidate": false,
   "is_identity_verified": true,
+  "is_face_verified": true,
+  "registration_ready": true,
   "identity_hint": "",
+  "face_hint": "",
   "resubmit_hint": "",
   "application": {
     "id": 1,
@@ -653,9 +610,9 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 }
 ```
 
-**未实名认证时** `is_identity_verified` 为 `false`，`can_apply` 为 `false`，`identity_hint` 为 `"报名前需先完成实名认证（姓名+身份证号）"`。
+**未完成实人认证时** `is_face_verified` / `registration_ready` 为 `false`，`can_apply` 为 `false`，`identity_hint` / `face_hint` 提示先完成姓名+身份证号+刷脸。
 
-**审核通过时** `status` 为 `approved`，`is_candidate` 为 `true`，`can_apply` 和 `can_resubmit` 为 `true`（须已实名），`resubmit_hint` 为 `"可修改姓名、性别、介绍、头像或照片，提交后需后台重新审核"`，`candidate_id` 返回关联的候选人 ID，该候选人会出现在 `/api/candidates/` 列表和排行榜中。
+**审核通过时** `status` 为 `approved`，`is_candidate` 为 `true`，`can_apply` 和 `can_resubmit` 为 `true`（须已完成实人认证），`resubmit_hint` 为 `"可修改姓名、性别、介绍、头像或照片，提交后需后台重新审核"`，`candidate_id` 返回关联的候选人 ID，该候选人会出现在 `/api/candidates/` 列表和排行榜中。
 
 **审核驳回时** `status` 为 `rejected`，`can_apply` 和 `can_resubmit` 为 `true`。若用户此前已是候选人，`is_candidate` 仍为 `true`，候选人列表继续展示上次已通过的资料。`resubmit_hint` 为 `"资料被驳回，请修改姓名、性别、介绍或照片后重新提交"`，`status_message` 包含驳回原因。
 
