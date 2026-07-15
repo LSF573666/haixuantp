@@ -4,96 +4,6 @@ info:
   version: 1.0.0
   description: 海选投票系统后端接口文档，包含用户登录、投票、礼物、支付等功能。
 paths:
-  /api/auth/identity/face/confirm/:
-    post:
-      operationId: auth_identity_face_confirm_create
-      description: 用户完成客户端刷脸后，服务端调用 DescribeFaceVerify 查询结果；通过后写入姓名/身份证号并标记认证完成。若已配置公网回调，刷脸完成后也可能由服务端自动确认，本接口仍可作为兜底。
-      summary: 确认金融级实人认证结果
-      tags:
-      - 认证
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
-        required: true
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IdentityStatus'
-          description: ''
-  /api/auth/identity/face/init/:
-    post:
-      operationId: auth_identity_face_init_create
-      description: 提交真实姓名、身份证号，并由客户端 SDK 提供 MetaInfo。服务端调用 InitFaceVerify 返回 CertifyId；App
-        用 CertifyId 唤起刷脸，H5 可使用返回的 CertifyUrl 跳转。刷脸通过后绑定实名信息并可报名。
-      summary: 发起金融级实人认证
-      tags:
-      - 认证
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyInitRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyInitRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyInitRequest'
-        required: true
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FaceVerifyInitResponse'
-          description: ''
-  /api/auth/identity/face/notify/:
-    get:
-      operationId: auth_identity_face_notify_retrieve
-      description: 阿里云在认证完成（通过或失败）后会 GET 回调本地址，自动附带 certifyId、passed（subcode）、callbackToken。服务端会再次调用
-        DescribeFaceVerify 确认后自动写认证状态。须返回 HTTP 200。
-      summary: 刷脸认证结果回调（阿里云）
-      tags:
-      - 认证
-      security:
-      - {}
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: {}
-          description: ''
-  /api/auth/identity/status/:
-    get:
-      operationId: auth_identity_status_retrieve
-      summary: 查询实人认证状态
-      tags:
-      - 认证
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IdentityStatus'
-          description: ''
   /api/auth/login/:
     post:
       operationId: auth_login_create
@@ -285,10 +195,9 @@ paths:
   /api/auth/token/refresh/:
     post:
       operationId: auth_token_refresh_create
-      description: 'Takes a refresh type JSON web token and returns an access type
-        JSON web
-
-        token if the refresh token is valid.'
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
       tags:
       - auth
       requestBody:
@@ -542,15 +451,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedGiftTransactionList'
           description: ''
+  /api/gifts/pay/:
+    post:
+      operationId: gifts_pay_create
+      description: |-
+        根据礼物单价 × 数量自动计算应付金额，创建微信/支付宝扫码订单。
+        前端用返回的 `pay_data.code_url` / `qr_code` 展示二维码；支付成功后服务端回调自动赠送，可用订单号轮询状态。
+      summary: 按礼物价格发起支付
+      tags:
+      - 礼物
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayGiftRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PayGiftRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PayGiftRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/gifts/send/:
     post:
       operationId: gifts_send_create
-      description: '支持三种支付方式：
-
-        - balance：立即扣减账户余额并赠送
-
-        - wechat / alipay：创建支付订单并返回扫码参数，用户支付成功后由回调自动赠送'
-      summary: 赠送礼物
+      description: 按礼物单价 × 数量扣减余额并立即赠送。第三方支付请用 POST /api/gifts/pay/。
+      summary: 余额赠送礼物
       tags:
       - 礼物
       requestBody:
@@ -847,96 +783,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/VoteStatus'
           description: ''
-  /auth/identity/face/confirm/:
-    post:
-      operationId: auth_identity_face_confirm_create_2
-      description: 用户完成客户端刷脸后，服务端调用 DescribeFaceVerify 查询结果；通过后写入姓名/身份证号并标记认证完成。若已配置公网回调，刷脸完成后也可能由服务端自动确认，本接口仍可作为兜底。
-      summary: 确认金融级实人认证结果
-      tags:
-      - 认证
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
-        required: true
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IdentityStatus'
-          description: ''
-  /auth/identity/face/init/:
-    post:
-      operationId: auth_identity_face_init_create_2
-      description: 提交真实姓名、身份证号，并由客户端 SDK 提供 MetaInfo。服务端调用 InitFaceVerify 返回 CertifyId；App
-        用 CertifyId 唤起刷脸，H5 可使用返回的 CertifyUrl 跳转。刷脸通过后绑定实名信息并可报名。
-      summary: 发起金融级实人认证
-      tags:
-      - 认证
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyInitRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyInitRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/FaceVerifyInitRequest'
-        required: true
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FaceVerifyInitResponse'
-          description: ''
-  /auth/identity/face/notify/:
-    get:
-      operationId: auth_identity_face_notify_retrieve_2
-      description: 阿里云在认证完成（通过或失败）后会 GET 回调本地址，自动附带 certifyId、passed（subcode）、callbackToken。服务端会再次调用
-        DescribeFaceVerify 确认后自动写认证状态。须返回 HTTP 200。
-      summary: 刷脸认证结果回调（阿里云）
-      tags:
-      - 认证
-      security:
-      - {}
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: {}
-          description: ''
-  /auth/identity/status/:
-    get:
-      operationId: auth_identity_status_retrieve_2
-      summary: 查询实人认证状态
-      tags:
-      - 认证
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IdentityStatus'
-          description: ''
   /auth/login/:
     post:
       operationId: auth_login_create_2
@@ -1128,10 +974,9 @@ paths:
   /auth/token/refresh/:
     post:
       operationId: auth_token_refresh_create_2
-      description: 'Takes a refresh type JSON web token and returns an access type
-        JSON web
-
-        token if the refresh token is valid.'
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
       tags:
       - auth
       requestBody:
@@ -1385,15 +1230,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedGiftTransactionList'
           description: ''
+  /gifts/pay/:
+    post:
+      operationId: gifts_pay_create_2
+      description: |-
+        根据礼物单价 × 数量自动计算应付金额，创建微信/支付宝扫码订单。
+        前端用返回的 `pay_data.code_url` / `qr_code` 展示二维码；支付成功后服务端回调自动赠送，可用订单号轮询状态。
+      summary: 按礼物价格发起支付
+      tags:
+      - 礼物
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayGiftRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PayGiftRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PayGiftRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /gifts/send/:
     post:
       operationId: gifts_send_create_2
-      description: '支持三种支付方式：
-
-        - balance：立即扣减账户余额并赠送
-
-        - wechat / alipay：创建支付订单并返回扫码参数，用户支付成功后由回调自动赠送'
-      summary: 赠送礼物
+      description: 按礼物单价 × 数量扣减余额并立即赠送。第三方支付请用 POST /api/gifts/pay/。
+      summary: 余额赠送礼物
       tags:
       - 礼物
       requestBody:
@@ -1698,12 +1570,11 @@ components:
         channel:
           allOf:
           - $ref: '#/components/schemas/ChannelEnum'
-          description: 'wechat=微信openid；alipay=支付宝登录号（手机/邮箱）
-
+          description: |-
+            wechat=微信openid；alipay=支付宝登录号（手机/邮箱）
 
             * `wechat` - 微信
-
-            * `alipay` - 支付宝'
+            * `alipay` - 支付宝
         account:
           type: string
           minLength: 1
@@ -1823,16 +1694,6 @@ components:
           type: boolean
         is_candidate:
           type: boolean
-        is_identity_verified:
-          type: boolean
-        is_face_verified:
-          type: boolean
-        registration_ready:
-          type: boolean
-        identity_hint:
-          type: string
-        face_hint:
-          type: string
         resubmit_hint:
           type: string
         application:
@@ -1843,13 +1704,8 @@ components:
       - application
       - can_apply
       - can_resubmit
-      - face_hint
       - has_application
-      - identity_hint
       - is_candidate
-      - is_face_verified
-      - is_identity_verified
-      - registration_ready
       - resubmit_hint
     CandidateApplicationStatusEnum:
       enum:
@@ -1857,11 +1713,10 @@ components:
       - approved
       - rejected
       type: string
-      description: '* `pending` - 待审核
-
+      description: |-
+        * `pending` - 待审核
         * `approved` - 已通过
-
-        * `rejected` - 已驳回'
+        * `rejected` - 已驳回
     CandidateDetail:
       type: object
       properties:
@@ -2065,17 +1920,9 @@ components:
       - wechat
       - alipay
       type: string
-      description: '* `wechat` - 微信
-
-        * `alipay` - 支付宝'
-    CreateRechargePaymentMethodEnum:
-      enum:
-      - wechat
-      - alipay
-      type: string
-      description: '* `wechat` - 微信支付
-
-        * `alipay` - 支付宝'
+      description: |-
+        * `wechat` - 微信
+        * `alipay` - 支付宝
     CreateRechargeRequest:
       type: object
       properties:
@@ -2086,13 +1933,12 @@ components:
           description: 充值金额（元）
         payment_method:
           allOf:
-          - $ref: '#/components/schemas/CreateRechargePaymentMethodEnum'
-          description: '支付方式
-
+          - $ref: '#/components/schemas/PaymentMethod2f6Enum'
+          description: |-
+            支付方式
 
             * `wechat` - 微信支付
-
-            * `alipay` - 支付宝'
+            * `alipay` - 支付宝
       required:
       - amount
       - payment_method
@@ -2107,12 +1953,11 @@ components:
         channel:
           allOf:
           - $ref: '#/components/schemas/ChannelEnum'
-          description: '提现渠道（须已绑定收款账户）
-
+          description: |-
+            提现渠道（须已绑定收款账户）
 
             * `wechat` - 微信
-
-            * `alipay` - 支付宝'
+            * `alipay` - 支付宝
       required:
       - amount
       - channel
@@ -2125,61 +1970,14 @@ components:
           description: 订单号
       required:
       - order_no
-    FaceVerifyConfirmRequest:
-      type: object
-      properties:
-        certify_id:
-          type: string
-          minLength: 1
-          description: InitFaceVerify 返回的 CertifyId
-      required:
-      - certify_id
-    FaceVerifyInitRequest:
-      type: object
-      properties:
-        real_name:
-          type: string
-          minLength: 1
-          description: 真实姓名
-          maxLength: 50
-        id_card_number:
-          type: string
-          minLength: 1
-          description: 身份证号
-          maxLength: 18
-        meta_info:
-          type: string
-          minLength: 1
-          description: 客户端 SDK 获取的 MetaInfo 字符串
-        return_url:
-          type: string
-          default: ''
-          description: H5 刷脸完成后的回跳地址，App 接入可不传
-      required:
-      - id_card_number
-      - meta_info
-      - real_name
-    FaceVerifyInitResponse:
-      type: object
-      properties:
-        certify_id:
-          type: string
-        certify_url:
-          type: string
-        outer_order_no:
-          type: string
-      required:
-      - certify_id
-      - certify_url
-      - outer_order_no
     GenderEnum:
       enum:
       - male
       - female
       type: string
-      description: '* `male` - 男
-
-        * `female` - 女'
+      description: |-
+        * `male` - 男
+        * `female` - 女
     Gift:
       type: object
       properties:
@@ -2270,41 +2068,6 @@ components:
       - id
       - total_heat
       - total_price
-    IdentityStatus:
-      type: object
-      properties:
-        is_identity_verified:
-          type: boolean
-        is_face_verified:
-          type: boolean
-        registration_ready:
-          type: boolean
-        real_name_masked:
-          type: string
-        id_card_number_masked:
-          type: string
-        identity_verified_at:
-          type: string
-          format: date-time
-          nullable: true
-        face_verified_at:
-          type: string
-          format: date-time
-          nullable: true
-        identity_hint:
-          type: string
-        face_hint:
-          type: string
-      required:
-      - face_hint
-      - face_verified_at
-      - id_card_number_masked
-      - identity_hint
-      - identity_verified_at
-      - is_face_verified
-      - is_identity_verified
-      - real_name_masked
-      - registration_ready
     OSSStsCredential:
       type: object
       properties:
@@ -2350,9 +2113,9 @@ components:
       - recharge
       - gift
       type: string
-      description: '* `recharge` - 充值
-
-        * `gift` - 购买礼物'
+      description: |-
+        * `recharge` - 充值
+        * `gift` - 购买礼物
     PaginatedCandidateListList:
       type: object
       required:
@@ -2520,17 +2283,41 @@ components:
           format: binary
           nullable: true
           title: 头像
-    PaymentMethodA16Enum:
+    PayGiftRequest:
+      type: object
+      description: 按礼物价格直接发起第三方支付。金额 = 礼物单价 × 数量，无需用户传金额。
+      properties:
+        candidate_id:
+          type: integer
+          description: 候选人 ID
+        gift_id:
+          type: integer
+          description: 礼物 ID
+        quantity:
+          type: integer
+          minimum: 1
+          default: 1
+          description: 数量
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/PaymentMethod2f6Enum'
+          description: |-
+            支付方式（金额由礼物价格自动计算）
+
+            * `wechat` - 微信支付
+            * `alipay` - 支付宝
+      required:
+      - candidate_id
+      - gift_id
+      - payment_method
+    PaymentMethod2f6Enum:
       enum:
       - wechat
       - alipay
-      - balance
       type: string
-      description: '* `wechat` - 微信支付
-
+      description: |-
+        * `wechat` - 微信支付
         * `alipay` - 支付宝
-
-        * `balance` - 余额支付'
     PaymentOrder:
       type: object
       properties:
@@ -2545,7 +2332,7 @@ components:
           title: 订单类型
         payment_method:
           allOf:
-          - $ref: '#/components/schemas/PaymentMethodA16Enum'
+          - $ref: '#/components/schemas/PaymentOrderPaymentMethodEnum'
           readOnly: true
           title: 支付方式
         amount:
@@ -2582,6 +2369,16 @@ components:
       - paid_at
       - payment_method
       - status
+    PaymentOrderPaymentMethodEnum:
+      enum:
+      - wechat
+      - alipay
+      - balance
+      type: string
+      description: |-
+        * `wechat` - 微信支付
+        * `alipay` - 支付宝
+        * `balance` - 余额支付
     PaymentOrderStatusEnum:
       enum:
       - pending
@@ -2590,15 +2387,12 @@ components:
       - cancelled
       - refunded
       type: string
-      description: '* `pending` - 待支付
-
+      description: |-
+        * `pending` - 待支付
         * `paid` - 已支付
-
         * `failed` - 支付失败
-
         * `cancelled` - 已取消
-
-        * `refunded` - 已退款'
+        * `refunded` - 已退款
     PhoneLoginRequest:
       type: object
       properties:
@@ -2625,6 +2419,7 @@ components:
       - daily_vote_limit
     SendGiftRequest:
       type: object
+      description: 余额赠送礼物。
       properties:
         candidate_id:
           type: integer
@@ -2637,18 +2432,6 @@ components:
           minimum: 1
           default: 1
           description: 数量
-        payment_method:
-          allOf:
-          - $ref: '#/components/schemas/PaymentMethodA16Enum'
-          default: balance
-          description: '支付方式：balance 立即扣余额；wechat/alipay 返回扫码支付参数，支付成功后自动赠送
-
-
-            * `balance` - 余额支付
-
-            * `wechat` - 微信支付
-
-            * `alipay` - 支付宝'
       required:
       - candidate_id
       - gift_id
@@ -2728,12 +2511,6 @@ components:
         has_password:
           type: boolean
           readOnly: true
-        is_identity_verified:
-          type: boolean
-          readOnly: true
-        is_face_verified:
-          type: boolean
-          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -2745,8 +2522,6 @@ components:
       - created_at
       - has_password
       - id
-      - is_face_verified
-      - is_identity_verified
       - nickname
       - phone
     UserRegisterRequest:
@@ -2894,15 +2669,12 @@ components:
       - failed
       - cancelled
       type: string
-      description: '* `pending` - 处理中
-
+      description: |-
+        * `pending` - 处理中
         * `await_confirm` - 待用户确认
-
         * `success` - 成功
-
         * `failed` - 失败
-
-        * `cancelled` - 已取消'
+        * `cancelled` - 已取消
   securitySchemes:
     jwtAuth:
       type: http
@@ -2910,7 +2682,7 @@ components:
       bearerFormat: JWT
 tags:
 - name: 认证
-  description: 手机号登录、实名认证与 JWT 鉴权
+  description: 手机号登录与 JWT 鉴权
 - name: 候选人
   description: 候选人信息与排行榜
 - name: 报名

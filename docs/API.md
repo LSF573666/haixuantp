@@ -50,7 +50,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | 候选人 | `/api/candidates/` | 候选人列表、详情、排行榜 |
 | 报名 | `/api/candidates/applications/` | 自主报名、查询审核进度 |
 | 投票 | `/api/votes/` | 投票状态、投票、投票记录 |
-| 礼物 | `/api/gifts/` | 礼物列表、赠送（余额/微信/支付宝）、赠送记录 |
+| 礼物 | `/api/gifts/` | 礼物列表、按价格直付、余额赠送、赠送记录 |
 | 支付/钱包 | `/api/payments/` | 余额、充值、提现、收款账户、订单、支付/提现回调 |
 | 配置 | `/api/config/` | 公开系统配置、OSS STS 上传凭证 |
 
@@ -69,10 +69,6 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `/api/auth/password/set/` | POST | 是 | 设置/修改登录密码 |
 | `/api/auth/token/refresh/` | POST | 否 | 刷新 Token |
 | `/api/auth/profile/` | GET / PATCH | 是 | 获取/更新用户信息 |
-| `/api/auth/identity/status/` | GET | 是 | 查询实人认证状态 |
-| `/api/auth/identity/face/init/` | POST | 是 | 发起金融级实人认证 |
-| `/api/auth/identity/face/confirm/` | POST | 是 | 确认金融级实人认证结果（前端兜底） |
-| `/api/auth/identity/face/notify/` | GET | 否 | 阿里云刷脸结果服务端回调 |
 
 ### 1.1 发送短信验证码
 
@@ -299,143 +295,6 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 ---
 
-### 1.8 金融级实人认证
-
-报名参选前须完成一次金融级实人认证：提交**真实姓名 + 身份证号**，再完成刷脸活体（`InitFaceVerify` + `DescribeFaceVerify`）。姓名与证件号会随刷脸请求提交给阿里云比对，无需单独二要素接口。
-
-#### 1.8.1 查询认证状态
-
-- **URL**: `GET /api/auth/identity/status/`
-- **鉴权**: 需要
-
-**未认证响应示例:**
-
-```json
-{
-  "is_identity_verified": false,
-  "is_face_verified": false,
-  "registration_ready": false,
-  "real_name_masked": "",
-  "id_card_number_masked": "",
-  "identity_verified_at": null,
-  "face_verified_at": null,
-  "identity_hint": "报名前需完成实人认证（姓名+身份证号+刷脸）",
-  "face_hint": "请完成实人认证（姓名+身份证号+刷脸）后再报名"
-}
-```
-
-> `is_identity_verified` 与 `is_face_verified` 在刷脸通过后同时为 `true`（兼容旧字段）。
-
-#### 1.8.2 发起金融级实人认证
-
-- **URL**: `POST /api/auth/identity/face/init/`
-- **鉴权**: 需要
-
-**请求体:**
-
-```json
-{
-  "real_name": "张三",
-  "id_card_number": "110101199001011234",
-  "meta_info": "{\"zimVer\":\"3.0.0\",\"appVersion\":\"1.0.0\"}",
-  "return_url": "https://your-frontend.com/face-verify/callback"
-}
-```
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `real_name` | string | 是 | 真实姓名 |
-| `id_card_number` | string | 是 | 身份证号 |
-| `meta_info` | string | 是 | 客户端 SDK 调用 `getMetaInfo()` 获取的环境参数 |
-| `return_url` | string | 否 | H5 刷脸完成后的回跳地址；App 接入可不传 |
-
-**成功响应 (200):**
-
-```json
-{
-  "certify_id": "91707dc296d469ad38e4c5efa6a0****",
-  "certify_url": "https://t.aliyun.com/****",
-  "outer_order_no": "fv000012abcdef1234567890abcdef12"
-}
-```
-
-- **App 接入**：用 `certify_id` 唤起阿里云客户端 SDK 完成刷脸
-- **H5 接入**：跳转 `certify_url` 完成刷脸，`return_url` 为完成后回跳地址
-
-**业务规则:**
-
-- 每位用户仅可认证一次，认证后不可修改
-- 同一身份证号不可绑定多个已认证账号
-
-#### 1.8.3 确认金融级实人认证结果
-
-- **URL**: `POST /api/auth/identity/face/confirm/`
-- **鉴权**: 需要
-
-**请求体:**
-
-```json
-{
-  "certify_id": "91707dc296d469ad38e4c5efa6a0****"
-}
-```
-
-用户完成客户端刷脸后，前端可调用此接口；服务端通过 `DescribeFaceVerify` 查询结果，通过后写入姓名/身份证号，并设 `registration_ready=true`。
-
-若已配置服务端回调（见下方环境变量），刷脸完成后阿里云也会主动通知本服务自动落库；前端仍建议在回跳后调用本接口或轮询 `identity/status` 作为兜底。
-
-**认证完成响应示例:**
-
-```json
-{
-  "is_identity_verified": true,
-  "is_face_verified": true,
-  "registration_ready": true,
-  "real_name_masked": "张*",
-  "id_card_number_masked": "110101********1234",
-  "identity_verified_at": "2026-07-13 15:00:00",
-  "face_verified_at": "2026-07-13 15:00:00",
-  "identity_hint": "",
-  "face_hint": ""
-}
-```
-
-**环境配置:**
-
-| 变量 | 说明 |
-|------|------|
-| `FACE_VERIFY_DEV_MODE` | `True` 时跳过刷脸核验（开发环境） |
-| `ALIYUN_IDENTITY_ACCESS_KEY_ID` | AccessKey，默认可复用短信 AK |
-| `ALIYUN_IDENTITY_ACCESS_KEY_SECRET` | AccessKey Secret |
-| `ALIYUN_FACE_VERIFY_SCENE_ID` | **必填（生产）** 控制台创建的认证场景 ID |
-| `ALIYUN_FACE_VERIFY_PRODUCT_CODE` | 认证方案：`LR_FR`（App）、`ID_PRO`（H5实人）、`PV_FV`（H5活体） |
-| `ALIYUN_FACE_VERIFY_MODEL` | H5 `ID_PRO` 时使用，默认 `LIVENESS` |
-| `ALIYUN_FACE_VERIFY_RETURN_URL` | H5 默认回跳地址（请求未传 `return_url` 时使用） |
-| `ALIYUN_FACE_VERIFY_CALLBACK_URL` | 服务端回调地址，**必须公网 https**，如 `https://your-domain.com/api/auth/identity/face/notify/` |
-| `ALIYUN_FACE_VERIFY_CALLBACK_TOKEN` | 回调防伪 Token，回调时校验 |
-
-#### 1.8.4 刷脸结果服务端回调
-
-- **URL**: `GET /api/auth/identity/face/notify/`
-- **鉴权**: 否（阿里云服务端回调）
-
-阿里云在认证完成（通过或失败）后 GET 回调，示例：
-
-```
-GET /api/auth/identity/face/notify/?callbackToken=xxx&certifyId=yyy&passed=200
-```
-
-服务端校验 Token 后调用 `DescribeFaceVerify` 确认，自动写入用户实人认证状态，并返回 HTTP 200。
-
-**阿里云控制台配置（生产环境）:**
-
-1. 开通「金融级实人认证」
-2. 添加认证场景，获取 **SceneId**
-3. RAM 授权：建议系统策略 `AliyunAntCloudAuthFullAccess`（或至少 `InitFaceVerify`、`DescribeFaceVerify`）
-4. 配置可公网访问的 `ALIYUN_FACE_VERIFY_CALLBACK_URL`（https）
-
----
-
 ## 2. 候选人模块 `/api/candidates/`
 
 | 接口 | 方法 | 鉴权 | 说明 |
@@ -558,7 +417,6 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jp
 
 **业务规则:**
 
-- **报名前须先完成金融级实人认证（姓名+身份证号+刷脸）**
 - 每位用户同时只能有一条待审核申请
 - 用户可随时修改姓名、性别、介绍、头像或照片，每次提交后均需后台重新审核
 - 首次审核通过后自动创建候选人；后续资料修改审核通过后更新已有候选人信息
@@ -588,12 +446,6 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 
 ```json
 {
-  "detail": "请先完成实人认证（姓名+身份证号+刷脸）后再报名"
-}
-```
-
-```json
-{
   "detail": "您已有待审核的资料修改，请耐心等待审核结果"
 }
 ```
@@ -613,11 +465,6 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
   "can_apply": false,
   "can_resubmit": false,
   "is_candidate": false,
-  "is_identity_verified": true,
-  "is_face_verified": true,
-  "registration_ready": true,
-  "identity_hint": "",
-  "face_hint": "",
   "resubmit_hint": "",
   "application": {
     "id": 1,
@@ -637,9 +484,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 }
 ```
 
-**未完成实人认证时** `is_face_verified` / `registration_ready` 为 `false`，`can_apply` 为 `false`，`identity_hint` / `face_hint` 提示先完成姓名+身份证号+刷脸。
-
-**审核通过时** `status` 为 `approved`，`is_candidate` 为 `true`，`can_apply` 和 `can_resubmit` 为 `true`（须已完成实人认证），`resubmit_hint` 为 `"可修改姓名、性别、介绍、头像或照片，提交后需后台重新审核"`，`candidate_id` 返回关联的候选人 ID，该候选人会出现在 `/api/candidates/` 列表和排行榜中。
+**审核通过时** `status` 为 `approved`，`is_candidate` 为 `true`，`can_apply` 和 `can_resubmit` 为 `true`，`resubmit_hint` 为 `"可修改姓名、性别、介绍、头像或照片，提交后需后台重新审核"`，`candidate_id` 返回关联的候选人 ID，该候选人会出现在 `/api/candidates/` 列表和排行榜中。
 
 **审核驳回时** `status` 为 `rejected`，`can_apply` 和 `can_resubmit` 为 `true`。若用户此前已是候选人，`is_candidate` 仍为 `true`，候选人列表继续展示上次已通过的资料。`resubmit_hint` 为 `"资料被驳回，请修改姓名、性别、介绍或照片后重新提交"`，`status_message` 包含驳回原因。
 
@@ -782,11 +627,87 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 
 | 接口 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
-| `/api/gifts/` | GET | 否 | 礼物列表 |
-| `/api/gifts/send/` | POST | 是 | 赠送礼物（余额 / 微信 / 支付宝） |
+| `/api/gifts/` | GET | 否 | 礼物列表（含单价 `price`） |
+| `/api/gifts/pay/` | POST | 是 | **按礼物价格直接发起微信/支付宝支付** |
+| `/api/gifts/send/` | POST | 是 | 余额赠送礼物 |
 | `/api/gifts/history/` | GET | 是 | 赠送记录 |
 
-### 4.1 赠送礼物
+### 4.1 按礼物价格发起支付（推荐）
+
+根据礼物单价自动计算应付金额（`单价 × 数量`），创建微信/支付宝扫码订单。前端**不必传金额**。
+
+- **URL**: `POST /api/gifts/pay/`
+- **鉴权**: 需要
+
+**请求体:**
+
+```json
+{
+  "candidate_id": 1,
+  "gift_id": 1,
+  "quantity": 2,
+  "payment_method": "wechat"
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `candidate_id` | 候选人 ID |
+| `gift_id` | 礼物 ID（价格从礼物表读取） |
+| `quantity` | 数量，默认 1 |
+| `payment_method` | `wechat` \| `alipay` |
+
+**成功响应 (201):**
+
+```json
+{
+  "message": "请完成支付，支付成功后礼物将自动赠送",
+  "gift": {
+    "id": 1,
+    "name": "玫瑰",
+    "unit_price": "9.90",
+    "heat_value": 10,
+    "quantity": 2,
+    "total_amount": "19.80",
+    "total_heat": 20
+  },
+  "payment_method": "wechat",
+  "order": {
+    "order_no": "GFXXXXXXXX",
+    "order_type": "gift",
+    "payment_method": "wechat",
+    "amount": "19.80",
+    "status": "pending",
+    "extra_data": {
+      "candidate_id": 1,
+      "gift_id": 1,
+      "quantity": 2,
+      "gift_name": "玫瑰",
+      "candidate_name": "候选人A"
+    },
+    "paid_at": null,
+    "created_at": "2026-07-15T10:00:00Z"
+  },
+  "pay_data": {
+    "order_no": "GFXXXXXXXX",
+    "payment_mode": "native",
+    "code_url": "weixin://wxpay/bizpayurl?pr=xxxx",
+    "qr_code": "weixin://wxpay/bizpayurl?pr=xxxx",
+    "expires_at": "2026-07-15T10:02:00+08:00"
+  }
+}
+```
+
+**前端流程:**
+
+1. `GET /api/gifts/` 展示礼物及 `price`
+2. 用户选择礼物与数量 → `POST /api/gifts/pay/`
+3. 用 `pay_data.code_url` / `qr_code` 生成二维码
+4. 轮询 `GET /api/payments/orders/{order_no}/`，`status=paid` 即支付成功并已自动赠送
+
+本地未配支付时可对返回的 `order_no` 调 `POST /api/payments/dev-pay/` 模拟成功。
+
+### 4.2 余额赠送礼物
 
 - **URL**: `POST /api/gifts/send/`
 - **鉴权**: 需要
@@ -797,20 +718,11 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 {
   "candidate_id": 1,
   "gift_id": 1,
-  "quantity": 1,
-  "payment_method": "balance"
+  "quantity": 1
 }
 ```
 
-`payment_method`（可选，默认 `balance`）:
-
-| 值 | 说明 |
-|----|------|
-| `balance` | 立即扣减账户余额并赠送 |
-| `wechat` | 创建扫码支付订单，支付成功后由回调自动赠送 |
-| `alipay` | 同上（支付宝预下单二维码） |
-
-**余额支付成功响应 (201):**
+**成功响应 (201):**
 
 ```json
 {
@@ -830,38 +742,6 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
   "balance": "90.10"
 }
 ```
-
-**微信/支付宝支付响应 (201):**
-
-```json
-{
-  "message": "请完成支付，支付成功后礼物将自动赠送",
-  "payment_method": "wechat",
-  "order": {
-    "order_no": "GFXXXXXXXX",
-    "order_type": "gift",
-    "payment_method": "wechat",
-    "amount": "9.90",
-    "status": "pending",
-    "extra_data": {
-      "candidate_id": 1,
-      "gift_id": 1,
-      "quantity": 1
-    },
-    "paid_at": null,
-    "created_at": "2026-07-15T10:00:00Z"
-  },
-  "pay_data": {
-    "order_no": "GFXXXXXXXX",
-    "payment_mode": "native",
-    "code_url": "weixin://wxpay/bizpayurl?pr=xxxx",
-    "qr_code": "weixin://wxpay/bizpayurl?pr=xxxx",
-    "expires_at": "2026-07-15T10:02:00+08:00"
-  }
-}
-```
-
-前端用 `pay_data.code_url` / `pay_data.qr_code` 生成二维码，用户扫码支付。支付成功后服务端回调自动赠送，可通过 `GET /api/payments/orders/{order_no}/` 轮询订单是否变为 `paid`。
 
 ---
 
