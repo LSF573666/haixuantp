@@ -50,8 +50,8 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | 候选人 | `/api/candidates/` | 候选人列表、详情、排行榜 |
 | 报名 | `/api/candidates/applications/` | 自主报名、查询审核进度 |
 | 投票 | `/api/votes/` | 投票状态、投票、投票记录 |
-| 礼物 | `/api/gifts/` | 礼物列表、赠送、赠送记录 |
-| 支付 | `/api/payments/` | 充值、订单、支付回调 |
+| 礼物 | `/api/gifts/` | 礼物列表、赠送（余额/微信/支付宝）、赠送记录 |
+| 支付/钱包 | `/api/payments/` | 余额、充值、提现、收款账户、订单、支付/提现回调 |
 | 配置 | `/api/config/` | 公开系统配置、OSS STS 上传凭证 |
 
 > 兼容无前缀访问（如 `/auth/login/`），推荐使用 `/api/` 前缀。
@@ -93,6 +93,14 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 {
   "message": "验证码已发送",
   "phone": "13800138000"
+}
+```
+
+**限流响应 (429):** 同一手机号约 60 秒内不可重复发送（对齐阿里云分钟级流控）。
+
+```json
+{
+  "detail": "发送过于频繁，请 45 秒后再试"
 }
 ```
 
@@ -731,10 +739,13 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 }
 ```
 
-**成功响应 (201):**
+均返回 **HTTP 200**，用 `success` 判断是否投票成功。
+
+**投票成功:**
 
 ```json
 {
+  "success": true,
   "message": "投票成功",
   "vote": {
     "id": 1,
@@ -744,9 +755,26 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
     "vote_date": "2026-07-09",
     "created_at": "2026-07-09 14:30:00"
   },
-  "remaining_votes": 2
+  "remaining_votes": 2,
+  "daily_limit": 3,
+  "today_votes": 1
 }
 ```
+
+**今日次数已用完:**
+
+```json
+{
+  "success": false,
+  "message": "今日投票次数已用完（每日限3票）",
+  "vote": null,
+  "remaining_votes": 0,
+  "daily_limit": 3,
+  "today_votes": 3
+}
+```
+
+候选人不存在或已下架时仍返回 **400** `{"detail":"..."}`。
 
 ---
 
@@ -755,7 +783,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 | 接口 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
 | `/api/gifts/` | GET | 否 | 礼物列表 |
-| `/api/gifts/send/` | POST | 是 | 赠送礼物 |
+| `/api/gifts/send/` | POST | 是 | 赠送礼物（余额 / 微信 / 支付宝） |
 | `/api/gifts/history/` | GET | 是 | 赠送记录 |
 
 ### 4.1 赠送礼物
@@ -769,23 +797,104 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 {
   "candidate_id": 1,
   "gift_id": 1,
-  "quantity": 1
+  "quantity": 1,
+  "payment_method": "balance"
 }
 ```
 
+`payment_method`（可选，默认 `balance`）:
+
+| 值 | 说明 |
+|----|------|
+| `balance` | 立即扣减账户余额并赠送 |
+| `wechat` | 创建扫码支付订单，支付成功后由回调自动赠送 |
+| `alipay` | 同上（支付宝预下单二维码） |
+
+**余额支付成功响应 (201):**
+
+```json
+{
+  "message": "礼物赠送成功",
+  "payment_method": "balance",
+  "transaction": {
+    "id": 1,
+    "gift": 1,
+    "gift_name": "玫瑰",
+    "candidate": 1,
+    "candidate_name": "候选人A",
+    "quantity": 1,
+    "total_price": "9.90",
+    "total_heat": 10,
+    "created_at": "2026-07-15T10:00:00Z"
+  },
+  "balance": "90.10"
+}
+```
+
+**微信/支付宝支付响应 (201):**
+
+```json
+{
+  "message": "请完成支付，支付成功后礼物将自动赠送",
+  "payment_method": "wechat",
+  "order": {
+    "order_no": "GFXXXXXXXX",
+    "order_type": "gift",
+    "payment_method": "wechat",
+    "amount": "9.90",
+    "status": "pending",
+    "extra_data": {
+      "candidate_id": 1,
+      "gift_id": 1,
+      "quantity": 1
+    },
+    "paid_at": null,
+    "created_at": "2026-07-15T10:00:00Z"
+  },
+  "pay_data": {
+    "order_no": "GFXXXXXXXX",
+    "payment_mode": "native",
+    "code_url": "weixin://wxpay/bizpayurl?pr=xxxx",
+    "qr_code": "weixin://wxpay/bizpayurl?pr=xxxx",
+    "expires_at": "2026-07-15T10:02:00+08:00"
+  }
+}
+```
+
+前端用 `pay_data.code_url` / `pay_data.qr_code` 生成二维码，用户扫码支付。支付成功后服务端回调自动赠送，可通过 `GET /api/payments/orders/{order_no}/` 轮询订单是否变为 `paid`。
+
 ---
 
-## 5. 支付模块 `/api/payments/`
+## 5. 支付/钱包模块 `/api/payments/`
 
 | 接口 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
-| `/api/payments/recharge/` | POST | 是 | 创建充值订单 |
+| `/api/payments/wallet/` | GET | 是 | 查询余额 |
+| `/api/payments/recharge/` | POST | 是 | 创建充值订单（微信/支付宝扫码） |
 | `/api/payments/dev-pay/` | POST | 是 | 模拟支付（仅 DEBUG） |
-| `/api/payments/orders/` | GET | 是 | 订单列表 |
-| `/api/payments/wechat/notify/` | POST | 否 | 微信支付回调 |
-| `/api/payments/alipay/notify/` | POST | 否 | 支付宝支付回调 |
+| `/api/payments/orders/` | GET | 是 | 支付订单列表 |
+| `/api/payments/orders/{order_no}/` | GET | 是 | 查询单笔订单状态 |
+| `/api/payments/payee-accounts/` | GET | 是 | 收款账户列表 |
+| `/api/payments/payee-accounts/` | POST | 是 | 绑定收款账户 |
+| `/api/payments/payee-accounts/` | DELETE | 是 | 解绑收款账户 |
+| `/api/payments/withdraw/` | POST | 是 | 申请提现 |
+| `/api/payments/withdraws/` | GET | 是 | 提现记录 |
+| `/api/payments/wechat/notify/` | POST | 否 | 微信支付结果回调 |
+| `/api/payments/alipay/notify/` | POST | 否 | 支付宝支付结果回调 |
+| `/api/payments/withdraw/wechat/notify/` | POST | 否 | 微信提现结果回调 |
+| `/api/payments/withdraw/alipay/notify/` | POST | 否 | 支付宝提现结果回调 |
 
-### 5.1 创建充值订单
+> 支付回调 URL 须配置为公网 HTTPS，并在商户平台填写一致。本地开发可用 `dev-pay` 模拟入账。
+
+### 5.1 查询余额
+
+- **URL**: `GET /api/payments/wallet/`
+
+```json
+{ "balance": "100.00" }
+```
+
+### 5.2 创建充值订单
 
 - **URL**: `POST /api/payments/recharge/`
 
@@ -800,17 +909,182 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 
 `payment_method`: `wechat` | `alipay`
 
-### 5.2 模拟支付（仅开发环境）
+**成功响应 (201):**
+
+```json
+{
+  "order": {
+    "order_no": "RCXXXXXXXX",
+    "order_type": "recharge",
+    "payment_method": "wechat",
+    "amount": "100.00",
+    "status": "pending",
+    "extra_data": {},
+    "paid_at": null,
+    "created_at": "2026-07-15T10:00:00Z"
+  },
+  "pay_data": {
+    "order_no": "RCXXXXXXXX",
+    "payment_mode": "native",
+    "code_url": "weixin://wxpay/bizpayurl?pr=xxxx",
+    "qr_code": "weixin://wxpay/bizpayurl?pr=xxxx",
+    "expires_at": "2026-07-15T10:02:00+08:00"
+  }
+}
+```
+
+支付成功后回调入账，余额增加。可用订单详情接口轮询 `status=paid`。
+
+### 5.3 模拟支付（仅开发环境）
 
 - **URL**: `POST /api/payments/dev-pay/`
+- **条件**: `DEBUG=True`
 
 **请求体:**
 
 ```json
 {
-  "order_no": "ORDABC123..."
+  "order_no": "RCXXXXXXXX"
 }
 ```
+
+成功后返回更新后的 `order` 与 `balance`。对礼物订单会同时完成赠送。
+
+### 5.4 订单列表 / 详情
+
+- `GET /api/payments/orders/`
+- `GET /api/payments/orders/{order_no}/` → `{ "order": {...}, "balance": "..." }`
+
+订单 `status`: `pending` | `paid` | `failed` | `cancelled` | `refunded`  
+订单 `order_type`: `recharge` | `gift`
+
+### 5.5 收款账户（提现收款方）
+
+#### 列表
+
+- **URL**: `GET /api/payments/payee-accounts/`
+
+```json
+{
+  "accounts": [
+    {
+      "channel": "alipay",
+      "account": "138****8000",
+      "account_name": "张三",
+      "updated_at": "2026-07-15T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### 绑定
+
+- **URL**: `POST /api/payments/payee-accounts/`
+
+```json
+{
+  "channel": "wechat",
+  "account": "用户openid",
+  "account_name": "张三"
+}
+```
+
+| channel | account 含义 |
+|---------|----------------|
+| `wechat` | 用户在该商户 AppID 下的 **openid** |
+| `alipay` | 支付宝登录号（手机号或邮箱） |
+
+每个用户每个渠道仅保留一份绑定，重复绑定会覆盖。
+
+#### 解绑
+
+- **URL**: `DELETE /api/payments/payee-accounts/`
+
+```json
+{ "channel": "wechat" }
+```
+
+### 5.6 申请提现
+
+- **URL**: `POST /api/payments/withdraw/`
+
+**前置**: 已绑定对应渠道收款账户；余额充足。
+
+```json
+{
+  "amount": "50.00",
+  "channel": "alipay"
+}
+```
+
+**成功响应 (201):**
+
+```json
+{
+  "message": "提现已受理",
+  "order": {
+    "order_no": "WDXXXXXXXX",
+    "channel": "alipay",
+    "amount": "50.00",
+    "status": "pending",
+    "payee_account": "138****8000",
+    "payee_name": "张三",
+    "provider_trade_no": "...",
+    "remark": "",
+    "completed_at": null,
+    "created_at": "2026-07-15T10:00:00Z"
+  },
+  "balance": "50.00"
+}
+```
+
+提现状态 `status`:
+
+| 值 | 说明 |
+|----|------|
+| `pending` | 处理中（等待通道回调） |
+| `await_confirm` | 微信待用户确认收款 |
+| `success` | 成功 |
+| `failed` | 失败（余额已自动退回） |
+| `cancelled` | 已取消 |
+
+微信新版商家转账若需用户确认，响应会额外返回：
+
+```json
+{
+  "message": "提现待用户在微信侧确认收款",
+  "wechat_confirm": {
+    "mchId": "1110450807",
+    "appId": "wx...",
+    "packageInfo": "...",
+    "transferState": "WAIT_USER_CONFIRM",
+    "needUserConfirm": true
+  }
+}
+```
+
+前端使用微信「确认收款」组件，传入 `packageInfo`。
+
+### 5.7 提现记录
+
+- **URL**: `GET /api/payments/withdraws/`
+
+### 5.8 支付 / 提现回调（服务端，勿由前端调用）
+
+| URL | 通道 | 作用 |
+|-----|------|------|
+| `POST /api/payments/wechat/notify/` | 微信 APIv3 | 充值/礼物支付成功 → 入账或发礼物 |
+| `POST /api/payments/alipay/notify/` | 支付宝 | 同上 |
+| `POST /api/payments/withdraw/wechat/notify/` | 微信商家转账 | 提现成功/失败 |
+| `POST /api/payments/withdraw/alipay/notify/` | 支付宝转账 | 提现结果（若配置） |
+
+微信回调：验签 + AEAD 解密后更新订单；响应 `{"code":"SUCCESS","message":"成功"}`。  
+支付宝回调：RSA2 验签；响应纯文本 `success` / `fail`。
+
+`.env` 关键注意：
+
+- `WECHAT_PAY_PLATFORM_SERIAL_NO` 必须是商户平台「微信支付公钥」的 **公钥 ID**（如 `PUB_KEY_ID_xxx`），**不是** pem 文件路径；微信提现必填。
+- 密钥/证书路径可写项目相对路径，如 `secrets/apiclient_key.pem`。
 
 ---
 

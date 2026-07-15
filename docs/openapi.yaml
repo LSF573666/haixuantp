@@ -4,6 +4,96 @@ info:
   version: 1.0.0
   description: 海选投票系统后端接口文档，包含用户登录、投票、礼物、支付等功能。
 paths:
+  /api/auth/identity/face/confirm/:
+    post:
+      operationId: auth_identity_face_confirm_create
+      description: 用户完成客户端刷脸后，服务端调用 DescribeFaceVerify 查询结果；通过后写入姓名/身份证号并标记认证完成。若已配置公网回调，刷脸完成后也可能由服务端自动确认，本接口仍可作为兜底。
+      summary: 确认金融级实人认证结果
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityStatus'
+          description: ''
+  /api/auth/identity/face/init/:
+    post:
+      operationId: auth_identity_face_init_create
+      description: 提交真实姓名、身份证号，并由客户端 SDK 提供 MetaInfo。服务端调用 InitFaceVerify 返回 CertifyId；App
+        用 CertifyId 唤起刷脸，H5 可使用返回的 CertifyUrl 跳转。刷脸通过后绑定实名信息并可报名。
+      summary: 发起金融级实人认证
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyInitRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyInitRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyInitRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaceVerifyInitResponse'
+          description: ''
+  /api/auth/identity/face/notify/:
+    get:
+      operationId: auth_identity_face_notify_retrieve
+      description: 阿里云在认证完成（通过或失败）后会 GET 回调本地址，自动附带 certifyId、passed（subcode）、callbackToken。服务端会再次调用
+        DescribeFaceVerify 确认后自动写认证状态。须返回 HTTP 200。
+      summary: 刷脸认证结果回调（阿里云）
+      tags:
+      - 认证
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/auth/identity/status/:
+    get:
+      operationId: auth_identity_status_retrieve
+      summary: 查询实人认证状态
+      tags:
+      - 认证
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityStatus'
+          description: ''
   /api/auth/login/:
     post:
       operationId: auth_login_create
@@ -284,8 +374,8 @@ paths:
   /api/candidates/applications/submit/:
     post:
       operationId: candidates_applications_submit_create
-      description: 用户提交个人信息报名参加海选，提交后进入待审核状态。头像可通过 `avatar` 文件上传，或通过 `avatar_url`
-        传 OSS 直传后的 URL。被驳回后可修改姓名、介绍后重新提交；头像和照片可不传，将保留上次内容。审核通过后自动创建候选人，展示在候选人列表中。
+      description: 用户提交或修改个人信息，提交后进入待审核状态。头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS
+        直传后的 URL。被驳回后可修改姓名、性别、介绍、头像或照片后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人，展示在候选人列表中。
       summary: 提交报名申请
       tags:
       - 报名
@@ -298,6 +388,12 @@ paths:
                 name:
                   type: string
                   description: 姓名
+                gender:
+                  type: string
+                  enum:
+                  - male
+                  - female
+                  description: 性别：male=男，female=女
                 introduction:
                   type: string
                   description: 个人介绍
@@ -316,6 +412,7 @@ paths:
                   description: 展示照片（可多张）
               required:
               - name
+              - gender
           application/json:
             schema:
               type: object
@@ -323,6 +420,12 @@ paths:
                 name:
                   type: string
                   description: 姓名
+                gender:
+                  type: string
+                  enum:
+                  - male
+                  - female
+                  description: 性别：male=男，female=女
                 introduction:
                   type: string
                   description: 个人介绍
@@ -331,6 +434,7 @@ paths:
                   description: OSS 直传后的头像 URL
               required:
               - name
+              - gender
               - avatar_url
       security:
       - jwtAuth: []
@@ -344,7 +448,7 @@ paths:
   /api/candidates/ranking/:
     get:
       operationId: candidates_ranking_list
-      description: 按热度值降序排列的排行榜。
+      description: 按热度值降序排列的排行榜，可通过 gender 参数按性别筛选。
       summary: 候选人排行榜
       tags:
       - 候选人
@@ -441,7 +545,11 @@ paths:
   /api/gifts/send/:
     post:
       operationId: gifts_send_create
-      description: 使用账户余额购买礼物赠送给候选人，礼物热度值将累加到候选人热度。
+      description: '支持三种支付方式：
+
+        - balance：立即扣减账户余额并赠送
+
+        - wechat / alipay：创建支付订单并返回扫码参数，用户支付成功后由回调自动赠送'
       summary: 赠送礼物
       tags:
       - 礼物
@@ -464,7 +572,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GiftTransaction'
+                type: object
+                additionalProperties: {}
           description: ''
   /api/payments/dev-pay/:
     post:
@@ -472,7 +581,7 @@ paths:
       description: 开发环境模拟支付成功。
       summary: 模拟支付成功（仅开发环境）
       tags:
-      - 支付
+      - 钱包
       requestBody:
         content:
           application/json:
@@ -497,7 +606,7 @@ paths:
   /api/payments/orders/:
     get:
       operationId: payments_orders_list
-      summary: 我的订单列表
+      summary: 我的支付订单列表
       parameters:
       - name: page
         required: false
@@ -506,7 +615,7 @@ paths:
         schema:
           type: integer
       tags:
-      - 支付
+      - 钱包
       security:
       - jwtAuth: []
       responses:
@@ -516,13 +625,78 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedPaymentOrderList'
           description: ''
+  /api/payments/orders/{order_no}/:
+    get:
+      operationId: payments_orders_retrieve
+      summary: 查询支付订单状态
+      parameters:
+      - in: path
+        name: order_no
+        schema:
+          type: string
+        required: true
+      tags:
+      - 钱包
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/payments/payee-accounts/:
+    get:
+      operationId: payments_payee_accounts_retrieve
+      summary: 收款账户列表
+      tags:
+      - 钱包
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: payments_payee_accounts_create
+      summary: 绑定收款账户
+      tags:
+      - 钱包
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BindPayeeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BindPayeeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BindPayeeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: payments_payee_accounts_destroy
+      summary: 解绑收款账户
+      tags:
+      - 钱包
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/payments/recharge/:
     post:
       operationId: payments_recharge_create
-      description: 创建充值订单并返回支付参数（微信/支付宝）。
+      description: 创建充值订单并返回微信/支付宝 Native 扫码支付参数（code_url / qr_code）。
       summary: 创建充值订单
       tags:
-      - 支付
+      - 钱包
       requestBody:
         content:
           application/json:
@@ -545,10 +719,72 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/payments/wallet/:
+    get:
+      operationId: payments_wallet_retrieve
+      summary: 查询钱包余额
+      tags:
+      - 钱包
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/payments/withdraw/:
+    post:
+      operationId: payments_withdraw_create
+      description: 从余额提现到已绑定的微信 openid / 支付宝账号。微信新版商家转账可能返回 needUserConfirm，需前端拉起用户确认收款。
+      summary: 申请提现
+      tags:
+      - 钱包
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWithdrawRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateWithdrawRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateWithdrawRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/payments/withdraws/:
+    get:
+      operationId: payments_withdraws_list
+      summary: 我的提现记录
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 钱包
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWithdrawOrderList'
+          description: ''
   /api/votes/cast/:
     post:
       operationId: votes_cast_create
-      description: 每人每天可投票次数由后台配置（默认3票）。
+      description: 每人每天可投票次数由后台配置（默认3票）。无论成功或次数用完均返回 HTTP 200，通过 success 字段判断是否投票成功。
       summary: 为候选人投票
       tags:
       - 投票
@@ -567,7 +803,7 @@ paths:
       security:
       - jwtAuth: []
       responses:
-        '201':
+        '200':
           content:
             application/json:
               schema:
@@ -610,6 +846,96 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VoteStatus'
+          description: ''
+  /auth/identity/face/confirm/:
+    post:
+      operationId: auth_identity_face_confirm_create_2
+      description: 用户完成客户端刷脸后，服务端调用 DescribeFaceVerify 查询结果；通过后写入姓名/身份证号并标记认证完成。若已配置公网回调，刷脸完成后也可能由服务端自动确认，本接口仍可作为兜底。
+      summary: 确认金融级实人认证结果
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyConfirmRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityStatus'
+          description: ''
+  /auth/identity/face/init/:
+    post:
+      operationId: auth_identity_face_init_create_2
+      description: 提交真实姓名、身份证号，并由客户端 SDK 提供 MetaInfo。服务端调用 InitFaceVerify 返回 CertifyId；App
+        用 CertifyId 唤起刷脸，H5 可使用返回的 CertifyUrl 跳转。刷脸通过后绑定实名信息并可报名。
+      summary: 发起金融级实人认证
+      tags:
+      - 认证
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyInitRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyInitRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FaceVerifyInitRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaceVerifyInitResponse'
+          description: ''
+  /auth/identity/face/notify/:
+    get:
+      operationId: auth_identity_face_notify_retrieve_2
+      description: 阿里云在认证完成（通过或失败）后会 GET 回调本地址，自动附带 certifyId、passed（subcode）、callbackToken。服务端会再次调用
+        DescribeFaceVerify 确认后自动写认证状态。须返回 HTTP 200。
+      summary: 刷脸认证结果回调（阿里云）
+      tags:
+      - 认证
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /auth/identity/status/:
+    get:
+      operationId: auth_identity_status_retrieve_2
+      summary: 查询实人认证状态
+      tags:
+      - 认证
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityStatus'
           description: ''
   /auth/login/:
     post:
@@ -891,8 +1217,8 @@ paths:
   /candidates/applications/submit/:
     post:
       operationId: candidates_applications_submit_create_2
-      description: 用户提交个人信息报名参加海选，提交后进入待审核状态。头像可通过 `avatar` 文件上传，或通过 `avatar_url`
-        传 OSS 直传后的 URL。被驳回后可修改姓名、介绍后重新提交；头像和照片可不传，将保留上次内容。审核通过后自动创建候选人，展示在候选人列表中。
+      description: 用户提交或修改个人信息，提交后进入待审核状态。头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS
+        直传后的 URL。被驳回后可修改姓名、性别、介绍、头像或照片后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人，展示在候选人列表中。
       summary: 提交报名申请
       tags:
       - 报名
@@ -905,6 +1231,12 @@ paths:
                 name:
                   type: string
                   description: 姓名
+                gender:
+                  type: string
+                  enum:
+                  - male
+                  - female
+                  description: 性别：male=男，female=女
                 introduction:
                   type: string
                   description: 个人介绍
@@ -923,6 +1255,7 @@ paths:
                   description: 展示照片（可多张）
               required:
               - name
+              - gender
           application/json:
             schema:
               type: object
@@ -930,6 +1263,12 @@ paths:
                 name:
                   type: string
                   description: 姓名
+                gender:
+                  type: string
+                  enum:
+                  - male
+                  - female
+                  description: 性别：male=男，female=女
                 introduction:
                   type: string
                   description: 个人介绍
@@ -938,6 +1277,7 @@ paths:
                   description: OSS 直传后的头像 URL
               required:
               - name
+              - gender
               - avatar_url
       security:
       - jwtAuth: []
@@ -951,7 +1291,7 @@ paths:
   /candidates/ranking/:
     get:
       operationId: candidates_ranking_list_2
-      description: 按热度值降序排列的排行榜。
+      description: 按热度值降序排列的排行榜，可通过 gender 参数按性别筛选。
       summary: 候选人排行榜
       tags:
       - 候选人
@@ -1048,7 +1388,11 @@ paths:
   /gifts/send/:
     post:
       operationId: gifts_send_create_2
-      description: 使用账户余额购买礼物赠送给候选人，礼物热度值将累加到候选人热度。
+      description: '支持三种支付方式：
+
+        - balance：立即扣减账户余额并赠送
+
+        - wechat / alipay：创建支付订单并返回扫码参数，用户支付成功后由回调自动赠送'
       summary: 赠送礼物
       tags:
       - 礼物
@@ -1071,7 +1415,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GiftTransaction'
+                type: object
+                additionalProperties: {}
           description: ''
   /payments/dev-pay/:
     post:
@@ -1079,7 +1424,7 @@ paths:
       description: 开发环境模拟支付成功。
       summary: 模拟支付成功（仅开发环境）
       tags:
-      - 支付
+      - 钱包
       requestBody:
         content:
           application/json:
@@ -1104,7 +1449,7 @@ paths:
   /payments/orders/:
     get:
       operationId: payments_orders_list_2
-      summary: 我的订单列表
+      summary: 我的支付订单列表
       parameters:
       - name: page
         required: false
@@ -1113,7 +1458,7 @@ paths:
         schema:
           type: integer
       tags:
-      - 支付
+      - 钱包
       security:
       - jwtAuth: []
       responses:
@@ -1123,13 +1468,78 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedPaymentOrderList'
           description: ''
+  /payments/orders/{order_no}/:
+    get:
+      operationId: payments_orders_retrieve_2
+      summary: 查询支付订单状态
+      parameters:
+      - in: path
+        name: order_no
+        schema:
+          type: string
+        required: true
+      tags:
+      - 钱包
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /payments/payee-accounts/:
+    get:
+      operationId: payments_payee_accounts_retrieve_2
+      summary: 收款账户列表
+      tags:
+      - 钱包
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: payments_payee_accounts_create_2
+      summary: 绑定收款账户
+      tags:
+      - 钱包
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BindPayeeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BindPayeeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BindPayeeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: payments_payee_accounts_destroy_2
+      summary: 解绑收款账户
+      tags:
+      - 钱包
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
   /payments/recharge/:
     post:
       operationId: payments_recharge_create_2
-      description: 创建充值订单并返回支付参数（微信/支付宝）。
+      description: 创建充值订单并返回微信/支付宝 Native 扫码支付参数（code_url / qr_code）。
       summary: 创建充值订单
       tags:
-      - 支付
+      - 钱包
       requestBody:
         content:
           application/json:
@@ -1152,10 +1562,72 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /payments/wallet/:
+    get:
+      operationId: payments_wallet_retrieve_2
+      summary: 查询钱包余额
+      tags:
+      - 钱包
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /payments/withdraw/:
+    post:
+      operationId: payments_withdraw_create_2
+      description: 从余额提现到已绑定的微信 openid / 支付宝账号。微信新版商家转账可能返回 needUserConfirm，需前端拉起用户确认收款。
+      summary: 申请提现
+      tags:
+      - 钱包
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWithdrawRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateWithdrawRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateWithdrawRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /payments/withdraws/:
+    get:
+      operationId: payments_withdraws_list_2
+      summary: 我的提现记录
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      tags:
+      - 钱包
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWithdrawOrderList'
+          description: ''
   /votes/cast/:
     post:
       operationId: votes_cast_create_2
-      description: 每人每天可投票次数由后台配置（默认3票）。
+      description: 每人每天可投票次数由后台配置（默认3票）。无论成功或次数用完均返回 HTTP 200，通过 success 字段判断是否投票成功。
       summary: 为候选人投票
       tags:
       - 投票
@@ -1174,7 +1646,7 @@ paths:
       security:
       - jwtAuth: []
       responses:
-        '201':
+        '200':
           content:
             application/json:
               schema:
@@ -1220,6 +1692,32 @@ paths:
           description: ''
 components:
   schemas:
+    BindPayeeRequest:
+      type: object
+      properties:
+        channel:
+          allOf:
+          - $ref: '#/components/schemas/ChannelEnum'
+          description: 'wechat=微信openid；alipay=支付宝登录号（手机/邮箱）
+
+
+            * `wechat` - 微信
+
+            * `alipay` - 支付宝'
+        account:
+          type: string
+          minLength: 1
+          description: 收款账号
+          maxLength: 128
+        account_name:
+          type: string
+          minLength: 1
+          description: 收款人真实姓名
+          maxLength: 64
+      required:
+      - account
+      - account_name
+      - channel
     CandidateApplication:
       type: object
       properties:
@@ -1230,6 +1728,13 @@ components:
           type: string
           title: 姓名
           maxLength: 100
+        gender:
+          allOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          title: 性别
+        gender_display:
+          type: string
+          readOnly: true
         introduction:
           type: string
           title: 个人介绍
@@ -1278,6 +1783,7 @@ components:
       - avatar
       - candidate_id
       - created_at
+      - gender_display
       - id
       - name
       - photos
@@ -1317,6 +1823,16 @@ components:
           type: boolean
         is_candidate:
           type: boolean
+        is_identity_verified:
+          type: boolean
+        is_face_verified:
+          type: boolean
+        registration_ready:
+          type: boolean
+        identity_hint:
+          type: string
+        face_hint:
+          type: string
         resubmit_hint:
           type: string
         application:
@@ -1327,8 +1843,13 @@ components:
       - application
       - can_apply
       - can_resubmit
+      - face_hint
       - has_application
+      - identity_hint
       - is_candidate
+      - is_face_verified
+      - is_identity_verified
+      - registration_ready
       - resubmit_hint
     CandidateApplicationStatusEnum:
       enum:
@@ -1357,6 +1878,13 @@ components:
           minimum: 0
           title: 编号
           description: 参赛编号
+        gender:
+          allOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          title: 性别
+        gender_display:
+          type: string
+          readOnly: true
         introduction:
           type: string
           title: 个人介绍
@@ -1378,6 +1906,7 @@ components:
         is_active:
           type: boolean
           title: 是否参赛
+          description: 取消勾选即下架，前台列表/排行榜不再展示该候选人
         photos:
           type: array
           items:
@@ -1396,6 +1925,7 @@ components:
       required:
       - avatar
       - created_at
+      - gender_display
       - id
       - name
       - number
@@ -1417,6 +1947,13 @@ components:
           minimum: 0
           title: 编号
           description: 参赛编号
+        gender:
+          allOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          title: 性别
+        gender_display:
+          type: string
+          readOnly: true
         introduction:
           type: string
           title: 个人介绍
@@ -1438,8 +1975,10 @@ components:
         is_active:
           type: boolean
           title: 是否参赛
+          description: 取消勾选即下架，前台列表/排行榜不再展示该候选人
       required:
       - avatar
+      - gender_display
       - id
       - name
       - number
@@ -1484,6 +2023,13 @@ components:
           minimum: 0
           title: 编号
           description: 参赛编号
+        gender:
+          allOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          title: 性别
+        gender_display:
+          type: string
+          readOnly: true
         avatar:
           type: string
           format: uri
@@ -1501,6 +2047,7 @@ components:
           description: 投票+礼物转换的热度
       required:
       - avatar
+      - gender_display
       - id
       - name
       - number
@@ -1513,6 +2060,14 @@ components:
           description: 候选人 ID
       required:
       - candidate_id
+    ChannelEnum:
+      enum:
+      - wechat
+      - alipay
+      type: string
+      description: '* `wechat` - 微信
+
+        * `alipay` - 支付宝'
     CreateRechargePaymentMethodEnum:
       enum:
       - wechat
@@ -1541,6 +2096,26 @@ components:
       required:
       - amount
       - payment_method
+    CreateWithdrawRequest:
+      type: object
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          description: 提现金额（元）
+        channel:
+          allOf:
+          - $ref: '#/components/schemas/ChannelEnum'
+          description: '提现渠道（须已绑定收款账户）
+
+
+            * `wechat` - 微信
+
+            * `alipay` - 支付宝'
+      required:
+      - amount
+      - channel
     DevPayRequest:
       type: object
       properties:
@@ -1550,6 +2125,61 @@ components:
           description: 订单号
       required:
       - order_no
+    FaceVerifyConfirmRequest:
+      type: object
+      properties:
+        certify_id:
+          type: string
+          minLength: 1
+          description: InitFaceVerify 返回的 CertifyId
+      required:
+      - certify_id
+    FaceVerifyInitRequest:
+      type: object
+      properties:
+        real_name:
+          type: string
+          minLength: 1
+          description: 真实姓名
+          maxLength: 50
+        id_card_number:
+          type: string
+          minLength: 1
+          description: 身份证号
+          maxLength: 18
+        meta_info:
+          type: string
+          minLength: 1
+          description: 客户端 SDK 获取的 MetaInfo 字符串
+        return_url:
+          type: string
+          default: ''
+          description: H5 刷脸完成后的回跳地址，App 接入可不传
+      required:
+      - id_card_number
+      - meta_info
+      - real_name
+    FaceVerifyInitResponse:
+      type: object
+      properties:
+        certify_id:
+          type: string
+        certify_url:
+          type: string
+        outer_order_no:
+          type: string
+      required:
+      - certify_id
+      - certify_url
+      - outer_order_no
+    GenderEnum:
+      enum:
+      - male
+      - female
+      type: string
+      description: '* `male` - 男
+
+        * `female` - 女'
     Gift:
       type: object
       properties:
@@ -1640,6 +2270,41 @@ components:
       - id
       - total_heat
       - total_price
+    IdentityStatus:
+      type: object
+      properties:
+        is_identity_verified:
+          type: boolean
+        is_face_verified:
+          type: boolean
+        registration_ready:
+          type: boolean
+        real_name_masked:
+          type: string
+        id_card_number_masked:
+          type: string
+        identity_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        face_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        identity_hint:
+          type: string
+        face_hint:
+          type: string
+      required:
+      - face_hint
+      - face_verified_at
+      - id_card_number_masked
+      - identity_hint
+      - identity_verified_at
+      - is_face_verified
+      - is_identity_verified
+      - real_name_masked
+      - registration_ready
     OSSStsCredential:
       type: object
       properties:
@@ -1803,6 +2468,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Vote'
+    PaginatedWithdrawOrderList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WithdrawOrder'
     PasswordLoginRequest:
       type: object
       properties:
@@ -1832,6 +2520,17 @@ components:
           format: binary
           nullable: true
           title: 头像
+    PaymentMethodA16Enum:
+      enum:
+      - wechat
+      - alipay
+      - balance
+      type: string
+      description: '* `wechat` - 微信支付
+
+        * `alipay` - 支付宝
+
+        * `balance` - 余额支付'
     PaymentOrder:
       type: object
       properties:
@@ -1846,7 +2545,7 @@ components:
           title: 订单类型
         payment_method:
           allOf:
-          - $ref: '#/components/schemas/PaymentOrderPaymentMethodEnum'
+          - $ref: '#/components/schemas/PaymentMethodA16Enum'
           readOnly: true
           title: 支付方式
         amount:
@@ -1860,6 +2559,9 @@ components:
           - $ref: '#/components/schemas/PaymentOrderStatusEnum'
           readOnly: true
           title: 状态
+        extra_data:
+          readOnly: true
+          title: 附加数据
         paid_at:
           type: string
           format: date-time
@@ -1874,22 +2576,12 @@ components:
       required:
       - amount
       - created_at
+      - extra_data
       - order_no
       - order_type
       - paid_at
       - payment_method
       - status
-    PaymentOrderPaymentMethodEnum:
-      enum:
-      - wechat
-      - alipay
-      - balance
-      type: string
-      description: '* `wechat` - 微信支付
-
-        * `alipay` - 支付宝
-
-        * `balance` - 余额支付'
     PaymentOrderStatusEnum:
       enum:
       - pending
@@ -1945,6 +2637,18 @@ components:
           minimum: 1
           default: 1
           description: 数量
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/PaymentMethodA16Enum'
+          default: balance
+          description: '支付方式：balance 立即扣余额；wechat/alipay 返回扫码支付参数，支付成功后自动赠送
+
+
+            * `balance` - 余额支付
+
+            * `wechat` - 微信支付
+
+            * `alipay` - 支付宝'
       required:
       - candidate_id
       - gift_id
@@ -2024,6 +2728,12 @@ components:
         has_password:
           type: boolean
           readOnly: true
+        is_identity_verified:
+          type: boolean
+          readOnly: true
+        is_face_verified:
+          type: boolean
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -2035,6 +2745,8 @@ components:
       - created_at
       - has_password
       - id
+      - is_face_verified
+      - is_identity_verified
       - nickname
       - phone
     UserRegisterRequest:
@@ -2114,6 +2826,83 @@ components:
       - daily_limit
       - remaining_votes
       - today_votes
+    WithdrawOrder:
+      type: object
+      properties:
+        order_no:
+          type: string
+          readOnly: true
+          title: 提现单号
+        channel:
+          allOf:
+          - $ref: '#/components/schemas/ChannelEnum'
+          readOnly: true
+          title: 提现渠道
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+          title: 金额
+        status:
+          allOf:
+          - $ref: '#/components/schemas/WithdrawOrderStatusEnum'
+          readOnly: true
+          title: 状态
+        payee_account:
+          type: string
+          readOnly: true
+        payee_name:
+          type: string
+          readOnly: true
+          title: 收款人姓名
+        provider_trade_no:
+          type: string
+          readOnly: true
+          title: 第三方单号
+        remark:
+          type: string
+          readOnly: true
+          title: 备注
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: 完成时间
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 创建时间
+      required:
+      - amount
+      - channel
+      - completed_at
+      - created_at
+      - order_no
+      - payee_account
+      - payee_name
+      - provider_trade_no
+      - remark
+      - status
+    WithdrawOrderStatusEnum:
+      enum:
+      - pending
+      - await_confirm
+      - success
+      - failed
+      - cancelled
+      type: string
+      description: '* `pending` - 处理中
+
+        * `await_confirm` - 待用户确认
+
+        * `success` - 成功
+
+        * `failed` - 失败
+
+        * `cancelled` - 已取消'
   securitySchemes:
     jwtAuth:
       type: http
@@ -2121,7 +2910,7 @@ components:
       bearerFormat: JWT
 tags:
 - name: 认证
-  description: 手机号登录与 JWT 鉴权
+  description: 手机号登录、实名认证与 JWT 鉴权
 - name: 候选人
   description: 候选人信息与排行榜
 - name: 报名
