@@ -224,12 +224,28 @@ paths:
       operationId: candidates_list
       summary: 获取候选人列表
       parameters:
+      - in: query
+        name: gender
+        schema:
+          type: string
+          enum:
+          - female
+          - male
+        description: 按性别筛选：male=男，female=女
       - name: page
         required: false
         in: query
         description: 分页结果集中的页码。
         schema:
           type: integer
+      - in: query
+        name: registration_type
+        schema:
+          type: string
+          enum:
+          - group
+          - individual
+        description: 按报名类型筛选：individual=个人，group=团体；不传则返回全部
       tags:
       - 候选人
       security:
@@ -283,8 +299,8 @@ paths:
   /api/candidates/applications/submit/:
     post:
       operationId: candidates_applications_submit_create
-      description: 用户提交或修改个人信息，提交后进入待审核状态。头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS
-        直传后的 URL。被驳回后可修改姓名、性别、介绍、头像或照片后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人，展示在候选人列表中。
+      description: 支持个人报名（individual）与团体报名（group）。个人报名须填写姓名、性别、年龄；团体报名须填写团体名称，以及至少
+        3 名成员的姓名和年龄。头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS 直传后的 URL。被驳回后可修改资料后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人。
       summary: 提交报名申请
       tags:
       - 报名
@@ -294,18 +310,46 @@ paths:
             schema:
               type: object
               properties:
+                registration_type:
+                  type: string
+                  enum:
+                  - individual
+                  - group
+                  description: 报名类型：individual=个人，group=团体
                 name:
                   type: string
-                  description: 姓名
+                  description: 个人姓名或团体名称
                 gender:
                   type: string
                   enum:
                   - male
                   - female
-                  description: 性别：male=男，female=女
+                  description: 性别（个人报名必填）
+                age:
+                  type: integer
+                  minimum: 1
+                  maximum: 120
+                  description: 年龄（个人报名必填）
+                members:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        description: 成员姓名
+                      age:
+                        type: integer
+                        minimum: 1
+                        maximum: 120
+                        description: 成员年龄
+                    required:
+                    - name
+                    - age
+                  description: 团体成员列表，至少 3 人；multipart 时可传 JSON 字符串
                 introduction:
                   type: string
-                  description: 个人介绍
+                  description: 个人/团体介绍
                 avatar:
                   type: string
                   format: binary
@@ -320,30 +364,58 @@ paths:
                     format: binary
                   description: 展示照片（可多张）
               required:
+              - registration_type
               - name
-              - gender
           application/json:
             schema:
               type: object
               properties:
+                registration_type:
+                  type: string
+                  enum:
+                  - individual
+                  - group
+                  description: 报名类型：individual=个人，group=团体
                 name:
                   type: string
-                  description: 姓名
+                  description: 个人姓名或团体名称
                 gender:
                   type: string
                   enum:
                   - male
                   - female
-                  description: 性别：male=男，female=女
+                  description: 性别（个人报名必填）
+                age:
+                  type: integer
+                  minimum: 1
+                  maximum: 120
+                  description: 年龄（个人报名必填）
+                members:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        description: 成员姓名
+                      age:
+                        type: integer
+                        minimum: 1
+                        maximum: 120
+                        description: 成员年龄
+                    required:
+                    - name
+                    - age
+                  description: 团体成员列表，至少 3 人；multipart 时可传 JSON 字符串
                 introduction:
                   type: string
-                  description: 个人介绍
+                  description: 个人/团体介绍
                 avatar_url:
                   type: string
                   description: OSS 直传后的头像 URL
               required:
+              - registration_type
               - name
-              - gender
               - avatar_url
       security:
       - jwtAuth: []
@@ -357,8 +429,26 @@ paths:
   /api/candidates/ranking/:
     get:
       operationId: candidates_ranking_list
-      description: 按热度值降序排列的排行榜，可通过 gender 参数按性别筛选。
+      description: 按热度值降序排列的排行榜，可通过 gender、registration_type 参数筛选。不传 registration_type
+        时返回全部。
       summary: 候选人排行榜
+      parameters:
+      - in: query
+        name: gender
+        schema:
+          type: string
+          enum:
+          - female
+          - male
+        description: 按性别筛选：male=男，female=女
+      - in: query
+        name: registration_type
+        schema:
+          type: string
+          enum:
+          - group
+          - individual
+        description: 按报名类型筛选：individual=个人，group=团体；不传则返回全部
       tags:
       - 候选人
       security:
@@ -1003,12 +1093,28 @@ paths:
       operationId: candidates_list_2
       summary: 获取候选人列表
       parameters:
+      - in: query
+        name: gender
+        schema:
+          type: string
+          enum:
+          - female
+          - male
+        description: 按性别筛选：male=男，female=女
       - name: page
         required: false
         in: query
         description: 分页结果集中的页码。
         schema:
           type: integer
+      - in: query
+        name: registration_type
+        schema:
+          type: string
+          enum:
+          - group
+          - individual
+        description: 按报名类型筛选：individual=个人，group=团体；不传则返回全部
       tags:
       - 候选人
       security:
@@ -1062,8 +1168,8 @@ paths:
   /candidates/applications/submit/:
     post:
       operationId: candidates_applications_submit_create_2
-      description: 用户提交或修改个人信息，提交后进入待审核状态。头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS
-        直传后的 URL。被驳回后可修改姓名、性别、介绍、头像或照片后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人，展示在候选人列表中。
+      description: 支持个人报名（individual）与团体报名（group）。个人报名须填写姓名、性别、年龄；团体报名须填写团体名称，以及至少
+        3 名成员的姓名和年龄。头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS 直传后的 URL。被驳回后可修改资料后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人。
       summary: 提交报名申请
       tags:
       - 报名
@@ -1073,18 +1179,46 @@ paths:
             schema:
               type: object
               properties:
+                registration_type:
+                  type: string
+                  enum:
+                  - individual
+                  - group
+                  description: 报名类型：individual=个人，group=团体
                 name:
                   type: string
-                  description: 姓名
+                  description: 个人姓名或团体名称
                 gender:
                   type: string
                   enum:
                   - male
                   - female
-                  description: 性别：male=男，female=女
+                  description: 性别（个人报名必填）
+                age:
+                  type: integer
+                  minimum: 1
+                  maximum: 120
+                  description: 年龄（个人报名必填）
+                members:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        description: 成员姓名
+                      age:
+                        type: integer
+                        minimum: 1
+                        maximum: 120
+                        description: 成员年龄
+                    required:
+                    - name
+                    - age
+                  description: 团体成员列表，至少 3 人；multipart 时可传 JSON 字符串
                 introduction:
                   type: string
-                  description: 个人介绍
+                  description: 个人/团体介绍
                 avatar:
                   type: string
                   format: binary
@@ -1099,30 +1233,58 @@ paths:
                     format: binary
                   description: 展示照片（可多张）
               required:
+              - registration_type
               - name
-              - gender
           application/json:
             schema:
               type: object
               properties:
+                registration_type:
+                  type: string
+                  enum:
+                  - individual
+                  - group
+                  description: 报名类型：individual=个人，group=团体
                 name:
                   type: string
-                  description: 姓名
+                  description: 个人姓名或团体名称
                 gender:
                   type: string
                   enum:
                   - male
                   - female
-                  description: 性别：male=男，female=女
+                  description: 性别（个人报名必填）
+                age:
+                  type: integer
+                  minimum: 1
+                  maximum: 120
+                  description: 年龄（个人报名必填）
+                members:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        description: 成员姓名
+                      age:
+                        type: integer
+                        minimum: 1
+                        maximum: 120
+                        description: 成员年龄
+                    required:
+                    - name
+                    - age
+                  description: 团体成员列表，至少 3 人；multipart 时可传 JSON 字符串
                 introduction:
                   type: string
-                  description: 个人介绍
+                  description: 个人/团体介绍
                 avatar_url:
                   type: string
                   description: OSS 直传后的头像 URL
               required:
+              - registration_type
               - name
-              - gender
               - avatar_url
       security:
       - jwtAuth: []
@@ -1136,8 +1298,26 @@ paths:
   /candidates/ranking/:
     get:
       operationId: candidates_ranking_list_2
-      description: 按热度值降序排列的排行榜，可通过 gender 参数按性别筛选。
+      description: 按热度值降序排列的排行榜，可通过 gender、registration_type 参数筛选。不传 registration_type
+        时返回全部。
       summary: 候选人排行榜
+      parameters:
+      - in: query
+        name: gender
+        schema:
+          type: string
+          enum:
+          - female
+          - male
+        description: 按性别筛选：male=男，female=女
+      - in: query
+        name: registration_type
+        schema:
+          type: string
+          enum:
+          - group
+          - individual
+        description: 按报名类型筛选：individual=个人，group=团体；不传则返回全部
       tags:
       - 候选人
       security:
@@ -1589,23 +1769,48 @@ components:
       - account
       - account_name
       - channel
+    BlankEnum:
+      enum:
+      - ''
     CandidateApplication:
       type: object
       properties:
         id:
           type: integer
           readOnly: true
+        registration_type:
+          allOf:
+          - $ref: '#/components/schemas/RegistrationTypeEnum'
+          title: 报名类型
+        registration_type_display:
+          type: string
+          readOnly: true
         name:
           type: string
-          title: 姓名
+          title: 姓名/团体名称
           maxLength: 100
         gender:
-          allOf:
-          - $ref: '#/components/schemas/GenderEnum'
+          nullable: true
           title: 性别
+          description: |-
+            个人报名填写；团体报名可为空
+
+            * `male` - 男
+            * `female` - 女
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
         gender_display:
           type: string
           readOnly: true
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+          title: 年龄
+          description: 个人报名填写；团体报名可为空
         introduction:
           type: string
           title: 个人介绍
@@ -1617,6 +1822,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CandidateApplicationPhoto'
+          readOnly: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateApplicationMember'
           readOnly: true
         status:
           allOf:
@@ -1656,11 +1866,37 @@ components:
       - created_at
       - gender_display
       - id
+      - members
       - name
       - photos
+      - registration_type_display
       - status_display
       - status_message
       - updated_at
+    CandidateApplicationMember:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: 姓名
+          maxLength: 100
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          title: 年龄
+        sort_order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 排序
+      required:
+      - age
+      - id
+      - name
     CandidateApplicationPhoto:
       type: object
       properties:
@@ -1725,7 +1961,7 @@ components:
           readOnly: true
         name:
           type: string
-          title: 姓名
+          title: 姓名/团体名称
           maxLength: 100
         number:
           type: integer
@@ -1733,13 +1969,35 @@ components:
           minimum: 0
           title: 编号
           description: 参赛编号
-        gender:
+        registration_type:
           allOf:
-          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/RegistrationTypeEnum'
+          title: 报名类型
+        registration_type_display:
+          type: string
+          readOnly: true
+        gender:
+          nullable: true
           title: 性别
+          description: |-
+            个人报名填写；团体报名可为空
+
+            * `male` - 男
+            * `female` - 女
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
         gender_display:
           type: string
           readOnly: true
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+          title: 年龄
+          description: 个人报名填写；团体报名可为空
         introduction:
           type: string
           title: 个人介绍
@@ -1767,6 +2025,11 @@ components:
           items:
             $ref: '#/components/schemas/CandidatePhoto'
           readOnly: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateMember'
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -1782,9 +2045,11 @@ components:
       - created_at
       - gender_display
       - id
+      - members
       - name
       - number
       - photos
+      - registration_type_display
       - updated_at
     CandidateList:
       type: object
@@ -1794,7 +2059,7 @@ components:
           readOnly: true
         name:
           type: string
-          title: 姓名
+          title: 姓名/团体名称
           maxLength: 100
         number:
           type: integer
@@ -1802,13 +2067,35 @@ components:
           minimum: 0
           title: 编号
           description: 参赛编号
-        gender:
+        registration_type:
           allOf:
-          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/RegistrationTypeEnum'
+          title: 报名类型
+        registration_type_display:
+          type: string
+          readOnly: true
+        gender:
+          nullable: true
           title: 性别
+          description: |-
+            个人报名填写；团体报名可为空
+
+            * `male` - 男
+            * `female` - 女
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
         gender_display:
           type: string
           readOnly: true
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+          title: 年龄
+          description: 个人报名填写；团体报名可为空
         introduction:
           type: string
           title: 个人介绍
@@ -1816,6 +2103,11 @@ components:
           type: string
           format: uri
           title: 头像
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateMember'
+          readOnly: true
         vote_count:
           type: integer
           maximum: 2147483647
@@ -1835,8 +2127,34 @@ components:
       - avatar
       - gender_display
       - id
+      - members
       - name
       - number
+      - registration_type_display
+    CandidateMember:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: 姓名
+          maxLength: 100
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          title: 年龄
+        sort_order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: 排序
+      required:
+      - age
+      - id
+      - name
     CandidatePhoto:
       type: object
       properties:
@@ -1870,7 +2188,7 @@ components:
           readOnly: true
         name:
           type: string
-          title: 姓名
+          title: 姓名/团体名称
           maxLength: 100
         number:
           type: integer
@@ -1878,13 +2196,35 @@ components:
           minimum: 0
           title: 编号
           description: 参赛编号
-        gender:
+        registration_type:
           allOf:
-          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/RegistrationTypeEnum'
+          title: 报名类型
+        registration_type_display:
+          type: string
+          readOnly: true
+        gender:
+          nullable: true
           title: 性别
+          description: |-
+            个人报名填写；团体报名可为空
+
+            * `male` - 男
+            * `female` - 女
+          oneOf:
+          - $ref: '#/components/schemas/GenderEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
         gender_display:
           type: string
           readOnly: true
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+          title: 年龄
+          description: 个人报名填写；团体报名可为空
         avatar:
           type: string
           format: uri
@@ -1907,6 +2247,7 @@ components:
       - name
       - number
       - rank
+      - registration_type_display
     CastVoteRequest:
       type: object
       properties:
@@ -2068,6 +2409,9 @@ components:
       - id
       - total_heat
       - total_price
+    NullEnum:
+      enum:
+      - null
     OSSStsCredential:
       type: object
       properties:
@@ -2417,6 +2761,14 @@ components:
           description: 每日投票上限
       required:
       - daily_vote_limit
+    RegistrationTypeEnum:
+      enum:
+      - individual
+      - group
+      type: string
+      description: |-
+        * `individual` - 个人
+        * `group` - 团体
     SendGiftRequest:
       type: object
       description: 余额赠送礼物。

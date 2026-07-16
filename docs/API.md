@@ -299,22 +299,27 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 | 接口 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
-| `/api/candidates/` | GET | 否 | 候选人列表，支持按性别筛选 |
-| `/api/candidates/{id}/` | GET | 否 | 候选人详情（含照片） |
-| `/api/candidates/ranking/` | GET | 否 | 热度排行榜，支持按性别筛选 |
+| `/api/candidates/` | GET | 否 | 候选人列表，支持按性别、报名类型筛选 |
+| `/api/candidates/{id}/` | GET | 否 | 候选人详情（含照片、团体成员） |
+| `/api/candidates/ranking/` | GET | 否 | 热度排行榜，支持按性别、报名类型筛选 |
 
 **候选人字段说明:**
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `gender` | string | 性别：`male`=男，`female`=女 |
+| `registration_type` | string | 报名类型：`individual`=个人，`group`=团体 |
+| `registration_type_display` | string | 报名类型中文展示：个人 / 团体 |
+| `gender` | string\|null | 性别：`male`=男，`female`=女；团体可为空 |
 | `gender_display` | string | 性别中文展示：男 / 女 |
+| `age` | integer\|null | 年龄；团体可为空 |
+| `members` | array | 团体成员列表（`name`、`age`）；个人报名为空数组 |
 
 **列表/排行榜筛选参数:**
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `gender` | string | 否 | 按性别筛选，可选 `male`、`female` |
+| `registration_type` | string | 否 | 按报名类型筛选，可选 `individual`、`group`；**不传则返回全部** |
 
 **列表响应示例:**
 
@@ -326,10 +331,14 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
       "id": 1,
       "name": "张三",
       "number": 1,
+      "registration_type": "individual",
+      "registration_type_display": "个人",
       "gender": "male",
       "gender_display": "男",
+      "age": 22,
       "introduction": "热爱舞台",
       "avatar": "/media/candidates/avatars/xxx.jpg",
+      "members": [],
       "vote_count": 10,
       "heat_score": 15,
       "is_active": true
@@ -359,31 +368,64 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `name` | string | 是 | 姓名 |
-| `gender` | string | 是 | 性别：`male`=男，`female`=女 |
-| `introduction` | string | 否 | 个人介绍 |
+| `registration_type` | string | 是 | 报名类型：`individual`=个人，`group`=团体 |
+| `name` | string | 是 | 个人姓名，或团体名称 |
+| `gender` | string | 个人必填 | 性别：`male`=男，`female`=女；团体报名可不传 |
+| `age` | integer | 个人必填 | 年龄，范围 1–120；团体报名可不传 |
+| `members` | array | 团体必填 | 团体成员列表，每人含 `name`、`age`，**至少 3 人**；前端可按实际人数继续添加；个人报名勿传 |
+| `introduction` | string | 否 | 个人/团体介绍 |
 | `avatar` | file | 首次二选一 | 头像文件上传（与 `avatar_url` 二选一） |
 | `avatar_url` | string | 首次二选一 | OSS 直传后的头像完整 URL，须在当前用户目录 `uploads/{user_id}/` 下 |
 | `photos` | file[] | 否 | 展示照片，最多 9 张；重新提交可不传，保留上次照片 |
 
-**JSON 请求示例（OSS 直传后）:**
+**个人报名 JSON 示例:**
 
 ```json
 {
+  "registration_type": "individual",
   "name": "张三",
   "gender": "male",
+  "age": 22,
   "introduction": "热爱舞台，期待展示自我",
   "avatar_url": "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jpg"
 }
 ```
 
-**multipart 请求示例（OSS 直传后）:**
+**团体报名 JSON 示例:**
+
+```json
+{
+  "registration_type": "group",
+  "name": "青春舞团",
+  "members": [
+    {"name": "甲", "age": 20},
+    {"name": "乙", "age": 21},
+    {"name": "丙", "age": 22}
+  ],
+  "introduction": "三人街舞组合",
+  "avatar_url": "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/group.jpg"
+}
+```
+
+**个人报名 multipart 示例:**
 
 ```
+registration_type=individual
 name=张三
 gender=male
+age=22
 introduction=热爱舞台
 avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jpg
+```
+
+**团体报名 multipart 示例（`members` 传 JSON 字符串）:**
+
+```
+registration_type=group
+name=青春舞团
+members=[{"name":"甲","age":20},{"name":"乙","age":21},{"name":"丙","age":22}]
+introduction=三人街舞组合
+avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/group.jpg
 ```
 
 **成功响应 (201):**
@@ -391,9 +433,12 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jp
 ```json
 {
   "id": 1,
+  "registration_type": "individual",
+  "registration_type_display": "个人",
   "name": "张三",
   "gender": "male",
   "gender_display": "男",
+  "age": 22,
   "introduction": "热爱舞台，期待展示自我",
   "avatar": "/media/applications/avatars/xxx.jpg",
   "photos": [
@@ -404,6 +449,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jp
       "sort_order": 0
     }
   ],
+  "members": [],
   "status": "pending",
   "status_display": "待审核",
   "status_message": "您的报名申请已提交，正在审核中，请耐心等待",
@@ -418,26 +464,29 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jp
 **业务规则:**
 
 - 每位用户同时只能有一条待审核申请
-- 用户可随时修改姓名、性别、介绍、头像或照片，每次提交后均需后台重新审核
-- 首次审核通过后自动创建候选人；后续资料修改审核通过后更新已有候选人信息
+- 个人报名须填写姓名、性别、年龄；团体报名须填写团体名称，以及至少 3 名成员的姓名和年龄
+- 用户可随时修改资料，每次提交后均需后台重新审核
+- 首次审核通过后自动创建候选人（团体创建 1 个候选人并同步成员列表）；后续资料修改审核通过后更新已有候选人信息
 - 审核期间及驳回后，候选人列表仍展示上次已通过的资料
 - 被驳回后可修改资料重新提交；头像和照片可不传，将保留上次内容
 
 **重新提交请求示例:**
 
-仅修改姓名和介绍，无需重新上传头像/照片：
-
 ```
+registration_type=individual
 name=李四
 gender=female
+age=23
 introduction=更新后的个人介绍
 ```
 
 **已成为候选人后修改资料示例:**
 
 ```
+registration_type=individual
 name=李四
 gender=female
+age=23
 introduction=更新后的个人介绍
 avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avatar.jpg
 ```
@@ -468,10 +517,16 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
   "resubmit_hint": "",
   "application": {
     "id": 1,
+    "registration_type": "individual",
+    "registration_type_display": "个人",
     "name": "张三",
+    "gender": "male",
+    "gender_display": "男",
+    "age": 22,
     "introduction": "热爱舞台，期待展示自我",
     "avatar": "/media/applications/avatars/xxx.jpg",
     "photos": [],
+    "members": [],
     "status": "pending",
     "status_display": "待审核",
     "status_message": "您的报名申请已提交，正在审核中，请耐心等待",
@@ -484,9 +539,9 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 }
 ```
 
-**审核通过时** `status` 为 `approved`，`is_candidate` 为 `true`，`can_apply` 和 `can_resubmit` 为 `true`，`resubmit_hint` 为 `"可修改姓名、性别、介绍、头像或照片，提交后需后台重新审核"`，`candidate_id` 返回关联的候选人 ID，该候选人会出现在 `/api/candidates/` 列表和排行榜中。
+**审核通过时** `status` 为 `approved`，`is_candidate` 为 `true`，`can_apply` 和 `can_resubmit` 为 `true`，个人报名 `resubmit_hint` 为 `"可修改姓名、性别、年龄、介绍、头像或照片，提交后需后台重新审核"`，团体报名对应为修改团体名称与成员信息，`candidate_id` 返回关联的候选人 ID，该候选人会出现在 `/api/candidates/` 列表和排行榜中。
 
-**审核驳回时** `status` 为 `rejected`，`can_apply` 和 `can_resubmit` 为 `true`。若用户此前已是候选人，`is_candidate` 仍为 `true`，候选人列表继续展示上次已通过的资料。`resubmit_hint` 为 `"资料被驳回，请修改姓名、性别、介绍或照片后重新提交"`，`status_message` 包含驳回原因。
+**审核驳回时** `status` 为 `rejected`，`can_apply` 和 `can_resubmit` 为 `true`。若用户此前已是候选人，`is_candidate` 仍为 `true`，候选人列表继续展示上次已通过的资料。`resubmit_hint` 会提示修改对应类型的资料，`status_message` 包含驳回原因。
 
 **审核驳回响应示例:**
 
@@ -496,7 +551,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
   "can_apply": true,
   "can_resubmit": true,
   "is_candidate": false,
-  "resubmit_hint": "资料被驳回，请修改姓名、介绍或照片后重新提交",
+  "resubmit_hint": "资料被驳回，请修改姓名、性别、年龄、介绍或照片后重新提交",
   "application": {
     "status": "rejected",
     "status_display": "已驳回",
@@ -515,7 +570,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
   "can_apply": true,
   "can_resubmit": true,
   "is_candidate": true,
-  "resubmit_hint": "可修改姓名、性别、介绍、头像或照片，提交后需后台重新审核",
+  "resubmit_hint": "可修改姓名、性别、年龄、介绍、头像或照片，提交后需后台重新审核",
   "application": {
     "status": "approved",
     "status_display": "已通过",
