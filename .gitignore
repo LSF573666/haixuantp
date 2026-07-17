@@ -1,0 +1,16 @@
+# 本地环境与 IDE
+venv/
+.vscode/
+
+# 密钥与本地配置（勿提交）
+.env
+secrets/*
+!secrets/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+
+# 用户上传文件
+media/

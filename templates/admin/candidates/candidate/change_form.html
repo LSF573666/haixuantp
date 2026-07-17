@@ -1,0 +1,23 @@
+{% extends "admin/change_form.html" %}
+
+{% block submit_buttons_bottom %}
+{{ block.super }}
+{% if deactivate_url or activate_url %}
+<div class="submit-row" style="margin-top: 8px; display: flex; gap: 12px; align-items: center;">
+  {% if deactivate_url %}
+  <input type="submit" value="下架该候选人" name="_deactivate" class="deletelink"
+    formaction="{{ deactivate_url }}"
+    style="background:#ba2121;"
+    onclick="return confirm('确认下架该候选人？下架后前台列表、排行榜将不再展示，投票与送礼也将不可用。');">
+  {% endif %}
+  {% if activate_url %}
+  <input type="submit" value="重新上架" name="_activate" class="default"
+    formaction="{{ activate_url }}"
+    onclick="return confirm('确认重新上架该候选人？上架后将重新出现在前台列表中。');">
+  {% endif %}
+</div>
+<p style="color: #666; margin-top: 8px;">
+  下架后候选人保留数据与票数，仅从前台隐藏；需要时可再上架。
+</p>
+{% endif %}
+{% endblock %}
