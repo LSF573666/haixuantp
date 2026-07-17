@@ -299,9 +299,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 | 接口 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
-| `/api/candidates/` | GET | 否 | 候选人列表，支持按性别、报名类型筛选 |
-| `/api/candidates/{id}/` | GET | 否 | 候选人详情（含照片、团体成员） |
-| `/api/candidates/ranking/` | GET | 否 | 热度排行榜，支持按性别、报名类型筛选 |
+| `/api/candidates/` | GET | 否 | 候选人列表，支持按性别、报名类型筛选，以及按热度/票数排序 |
+| `/api/candidates/{id}/` | GET | 否 | 候选人详情（含照片、团体成员、排名与距上一名票数差距） |
+| `/api/candidates/ranking/` | GET | 否 | 排行榜，默认按热度；可改为按投票数，支持按性别、报名类型筛选 |
 
 **候选人字段说明:**
 
@@ -313,13 +313,27 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `gender_display` | string | 性别中文展示：男 / 女 |
 | `age` | integer\|null | 年龄；团体可为空 |
 | `members` | array | 团体成员列表（`name`、`age`）；个人报名为空数组 |
+| `vote_count` | integer | 投票数 |
+| `heat_score` | integer | 热度值（投票 + 礼物转换） |
+| `rank` | integer | 当前排名（与排行榜规则一致） |
+| `votes_behind_previous` | integer\|null | 距上一名的票数差距；**第一名为 `null`**，前端可不展示 |
 
-**列表/排行榜筛选参数:**
+**排名规则**（列表/详情中的 `rank` 字段，以及排行榜默认排序）：`heat_score` 降序 → `vote_count` 降序 → `number` 升序。
+
+**列表/排行榜筛选与排序参数:**
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `gender` | string | 否 | 按性别筛选，可选 `male`、`female` |
 | `registration_type` | string | 否 | 按报名类型筛选，可选 `individual`、`group`；**不传则返回全部** |
+| `sort_by` | string | 否 | 排序方式：`heat_score`=按热度值降序，`vote_count`=按投票数降序。列表不传则按编号升序；排行榜不传则默认按热度值 |
+
+**前端调用示例:**
+
+- 按热度排行榜：`GET /api/candidates/ranking/` 或 `GET /api/candidates/ranking/?sort_by=heat_score`
+- 按投票数排行榜：`GET /api/candidates/ranking/?sort_by=vote_count`
+- 列表按热度排序（分页）：`GET /api/candidates/?sort_by=heat_score`
+- 列表按投票数排序（分页）：`GET /api/candidates/?sort_by=vote_count`
 
 **列表响应示例:**
 
@@ -341,9 +355,52 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
       "members": [],
       "vote_count": 10,
       "heat_score": 15,
+      "rank": 2,
+      "votes_behind_previous": 5,
       "is_active": true
     }
   ]
+}
+```
+
+**详情响应示例**（`GET /api/candidates/{id}/`）：
+
+```json
+{
+  "id": 2,
+  "name": "李四",
+  "number": 2,
+  "registration_type": "individual",
+  "registration_type_display": "个人",
+  "gender": "female",
+  "gender_display": "女",
+  "age": 20,
+  "introduction": "热爱舞台",
+  "avatar": "/media/candidates/avatars/xxx.jpg",
+  "vote_count": 80,
+  "heat_score": 90,
+  "rank": 2,
+  "votes_behind_previous": 20,
+  "is_active": true,
+  "photos": [],
+  "members": [],
+  "created_at": "2026-07-13 10:00:00",
+  "updated_at": "2026-07-16 14:00:00"
+}
+```
+
+> 前端展示建议：当 `votes_behind_previous` 不为 `null` 时显示「距上一名还差 X 票」；为 `null`（第一名）时不显示。
+
+**第一名详情示例**（`votes_behind_previous` 为 `null`）：
+
+```json
+{
+  "id": 1,
+  "name": "张三",
+  "vote_count": 100,
+  "heat_score": 120,
+  "rank": 1,
+  "votes_behind_previous": null
 }
 ```
 
