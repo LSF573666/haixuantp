@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from urllib.parse import quote_plus, urlencode
+from urllib.parse import urlencode
 from urllib.request import ProxyHandler, Request, build_opener
 from urllib.error import HTTPError
 
@@ -48,7 +48,7 @@ class CreatePaymentResult:
     ok: bool
     message: str
     payment_url: str = ""
-    payment_mode: str = "qr"
+    payment_mode: str = "native"
     expires_at: datetime | None = None
     provider_trade_no: str = ""
     provider_payload: dict | None = None
@@ -324,30 +324,26 @@ def _alipay_sign_params(params: dict, app_private_key: str) -> str:
     return _sign_with_rsa_sha256(sign_src, app_private_key)
 
 
-def _create_alipay_order(
-    *,
-    out_trade_no: str,
-    amount: Decimal,
-    notify_url: str,
-    subject: str = "",
-) -> CreatePaymentResult:
-    app_id = os.environ.get("ALIPAY_APP_ID", "").strip()
-    gateway = os.environ.get("ALIPAY_GATEWAY", "https://openapi.alipay.com/gateway.do").strip()
-    app_private_key = _load_secret_from_env_or_file(os.environ.get("ALIPAY_APP_PRIVATE_KEY", ""))
-    alipay_public_key = _load_secret_from_env_or_file(os.environ.get("ALIPAY_PUBLIC_KEY", ""))
-    if not all([app_id, gateway, app_private_key, alipay_public_key]):
-        return CreatePaymentResult(ok=False, message="alipay_config_missing")
+def _normalize_alipay_payment_mode(payment_mode: str) -> str:
+    mode = (payment_mode or "native").strip().lower() or "native"
+    if mode in ("qr",):
+        return "native"
+    if mode in ("wap", "h5"):
+        return "h5"
+    return mode
 
-    expires_at = dj_timezone.now() + timedelta(minutes=2)
-    biz_content = {
-        "out_trade_no": out_trade_no,
-        "total_amount": f"{Decimal(amount):.2f}",
-        "subject": (subject or f"Recharge{out_trade_no}")[:256],
-        "timeout_express": "2m",
-    }
+
+def _build_alipay_common_params(
+    *,
+    app_id: str,
+    method: str,
+    notify_url: str,
+    biz_content: dict,
+    return_url: str = "",
+) -> dict:
     params = {
         "app_id": app_id,
-        "method": "alipay.trade.precreate",
+        "method": method,
         "format": "JSON",
         "charset": "utf-8",
         "sign_type": "RSA2",
@@ -356,12 +352,113 @@ def _create_alipay_order(
         "notify_url": notify_url,
         "biz_content": json.dumps(biz_content, ensure_ascii=False, separators=(",", ":")),
     }
+    if return_url:
+        params["return_url"] = return_url
     params.update(_get_alipay_cert_sn_params())
+    return params
+
+
+def _create_alipay_h5_order(
+    *,
+    app_id: str,
+    gateway: str,
+    app_private_key: str,
+    out_trade_no: str,
+    amount: Decimal,
+    notify_url: str,
+    subject: str,
+    expires_at: datetime,
+) -> CreatePaymentResult:
+    """手机网站支付：alipay.trade.wap.pay，返回可跳转的 pay_url（前端 location.href）。"""
+    return_url = (os.environ.get("ALIPAY_RETURN_URL") or "").strip()
+    biz_content = {
+        "out_trade_no": out_trade_no,
+        "total_amount": f"{Decimal(amount):.2f}",
+        "subject": (subject or f"Recharge{out_trade_no}")[:256],
+        "product_code": "QUICK_WAP_WAY",
+        "timeout_express": "2m",
+    }
+    if return_url:
+        biz_content["quit_url"] = return_url
+
+    params = _build_alipay_common_params(
+        app_id=app_id,
+        method="alipay.trade.wap.pay",
+        notify_url=notify_url,
+        biz_content=biz_content,
+        return_url=return_url,
+    )
     try:
         params["sign"] = _alipay_sign_params(params, app_private_key)
     except Exception as e:
         return CreatePaymentResult(ok=False, message=f"alipay_sign_failed:{str(e)[:220]}")
-    query = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())
+
+    pay_url = f"{gateway}?{urlencode(params)}"
+    return CreatePaymentResult(
+        ok=True,
+        message="ok",
+        payment_url=pay_url,
+        payment_mode="h5",
+        expires_at=expires_at,
+        provider_payload={"method": "alipay.trade.wap.pay", "pay_url": pay_url},
+    )
+
+
+def _create_alipay_order(
+    *,
+    out_trade_no: str,
+    amount: Decimal,
+    notify_url: str,
+    subject: str = "",
+    payment_mode: str = "native",
+) -> CreatePaymentResult:
+    """
+    支付宝下单：
+    - native/qr：alipay.trade.precreate（当面付扫码，返回 qr_code）
+    - h5/wap：alipay.trade.wap.pay（手机网站支付，返回 pay_url）
+    """
+    mode = _normalize_alipay_payment_mode(payment_mode)
+    if mode not in ("native", "h5"):
+        return CreatePaymentResult(ok=False, message="unsupported_alipay_payment_mode")
+
+    app_id = os.environ.get("ALIPAY_APP_ID", "").strip()
+    gateway = os.environ.get("ALIPAY_GATEWAY", "https://openapi.alipay.com/gateway.do").strip()
+    app_private_key = _load_secret_from_env_or_file(os.environ.get("ALIPAY_APP_PRIVATE_KEY", ""))
+    alipay_public_key = _load_secret_from_env_or_file(os.environ.get("ALIPAY_PUBLIC_KEY", ""))
+    if not all([app_id, gateway, app_private_key, alipay_public_key]):
+        return CreatePaymentResult(ok=False, message="alipay_config_missing")
+
+    expires_at = dj_timezone.now() + timedelta(minutes=2)
+    subject_text = (subject or f"Recharge{out_trade_no}")[:256]
+
+    if mode == "h5":
+        return _create_alipay_h5_order(
+            app_id=app_id,
+            gateway=gateway,
+            app_private_key=app_private_key,
+            out_trade_no=out_trade_no,
+            amount=amount,
+            notify_url=notify_url,
+            subject=subject_text,
+            expires_at=expires_at,
+        )
+
+    biz_content = {
+        "out_trade_no": out_trade_no,
+        "total_amount": f"{Decimal(amount):.2f}",
+        "subject": subject_text,
+        "timeout_express": "2m",
+    }
+    params = _build_alipay_common_params(
+        app_id=app_id,
+        method="alipay.trade.precreate",
+        notify_url=notify_url,
+        biz_content=biz_content,
+    )
+    try:
+        params["sign"] = _alipay_sign_params(params, app_private_key)
+    except Exception as e:
+        return CreatePaymentResult(ok=False, message=f"alipay_sign_failed:{str(e)[:220]}")
     post_data = urlencode(params).encode("utf-8")
     try:
         req = Request(
@@ -402,7 +499,7 @@ def _create_alipay_order(
         ok=True,
         message="ok",
         payment_url=qr_code,
-        payment_mode="qr",
+        payment_mode="native",
         expires_at=expires_at,
         provider_trade_no=(result.get("trade_no") or "").strip(),
         provider_payload=payload,
@@ -603,6 +700,7 @@ def create_payment_order(
             amount=amount,
             notify_url=notify_url,
             subject=description,
+            payment_mode=payment_mode,
         )
     return CreatePaymentResult(ok=False, message="unsupported_channel")
 

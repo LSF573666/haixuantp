@@ -207,7 +207,7 @@ WECHAT_MCH_ID = WECHAT_PAY_MCH_ID
 WECHAT_API_KEY = WECHAT_PAY_API_V3_KEY
 WECHAT_NOTIFY_URL = WECHAT_PAY_NOTIFY_URL
 
-# Alipay（公钥证书模式，支持扫码支付 + 转账提现）
+# Alipay（公钥证书模式，支持扫码支付 + H5 手机网站支付 + 转账提现）
 ALIPAY_APP_ID = os.getenv('ALIPAY_APP_ID', '')
 ALIPAY_GATEWAY = os.getenv('ALIPAY_GATEWAY', 'https://openapi.alipay.com/gateway.do')
 ALIPAY_APP_PRIVATE_KEY = os.getenv(

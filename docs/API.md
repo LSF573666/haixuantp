@@ -779,13 +779,25 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 }
 ```
 
+**请求体（支付宝 H5 手机网站支付）:**
+
+```json
+{
+  "candidate_id": 1,
+  "gift_id": 1,
+  "quantity": 2,
+  "payment_method": "alipay",
+  "payment_mode": "h5"
+}
+```
+
 | 字段 | 说明 |
 |------|------|
 | `candidate_id` | 候选人 ID |
 | `gift_id` | 礼物 ID（价格从礼物表读取） |
 | `quantity` | 数量，默认 1 |
 | `payment_method` | `wechat` \| `alipay` |
-| `payment_mode` | `native`（默认扫码）\| `jsapi`（仅微信；需 `openid`） |
+| `payment_mode` | `native`（默认扫码）\| `jsapi`（仅微信；需 `openid`）\| `h5`（仅支付宝手机网站） |
 | `openid` | 微信用户 openid；`jsapi` 时必填 |
 
 **成功响应 Native (201):**
@@ -847,6 +859,19 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 }
 ```
 
+**成功响应支付宝 H5 时 `pay_data`:**
+
+```json
+{
+  "order_no": "GFXXXXXXXX",
+  "payment_mode": "h5",
+  "pay_url": "https://openapi.alipay.com/gateway.do?...",
+  "payment_link_url": "https://openapi.alipay.com/gateway.do?...",
+  "expires_at": "2026-07-15T10:02:00+08:00"
+}
+```
+
+前端拿到 `pay_url` 后直接跳转：`window.location.href = pay_data.pay_url`。支付完成会异步回调，也可轮询订单状态；若配置了 `ALIPAY_RETURN_URL`，用户支付后会同步跳回该页。
 **前端流程:**
 
 1. `GET /api/gifts/` 展示礼物及 `price`
@@ -949,10 +974,20 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 }
 ```
 
+**请求体（支付宝 H5）:**
+
+```json
+{
+  "amount": "100.00",
+  "payment_method": "alipay",
+  "payment_mode": "h5"
+}
+```
+
 | 字段 | 说明 |
 |------|------|
 | `payment_method` | `wechat` \| `alipay` |
-| `payment_mode` | `native`（默认）\| `jsapi`（仅微信；需 `openid`） |
+| `payment_mode` | `native`（默认）\| `jsapi`（仅微信；需 `openid`）\| `h5`（仅支付宝） |
 | `openid` | 微信用户 openid；`jsapi` 时必填 |
 
 **成功响应 Native (201):**

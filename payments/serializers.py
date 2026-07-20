@@ -15,10 +15,14 @@ class CreateRechargeSerializer(serializers.Serializer):
     help_text='支付方式',
   )
   payment_mode = serializers.ChoiceField(
-    choices=[('native', 'Native 扫码'), ('jsapi', 'JSAPI 微信内支付')],
+    choices=[
+      ('native', 'Native 扫码'),
+      ('jsapi', 'JSAPI 微信内支付'),
+      ('h5', '支付宝 H5 手机网站支付'),
+    ],
     default='native',
     required=False,
-    help_text='微信支付模式：native=扫码（默认）；jsapi=微信内调起（需 openid）',
+    help_text='支付模式：native=扫码（默认）；jsapi=微信内调起（需 openid）；h5=支付宝手机网站跳转',
   )
   openid = serializers.CharField(
     required=False,
@@ -31,12 +35,16 @@ class CreateRechargeSerializer(serializers.Serializer):
     payment_method = attrs.get('payment_method')
     payment_mode = (attrs.get('payment_mode') or 'native').strip().lower()
     openid = (attrs.get('openid') or '').strip()
+    if payment_mode in ('wap',):
+      payment_mode = 'h5'
     attrs['payment_mode'] = payment_mode
     attrs['openid'] = openid
     if payment_method == 'wechat' and payment_mode == 'jsapi' and not openid:
       raise serializers.ValidationError({'openid': 'JSAPI 支付需要传微信用户 openid'})
+    if payment_method == 'wechat' and payment_mode == 'h5':
+      raise serializers.ValidationError({'payment_mode': '微信暂不支持 h5，请使用 native 或 jsapi'})
     if payment_method == 'alipay' and payment_mode == 'jsapi':
-      raise serializers.ValidationError({'payment_mode': '支付宝暂不支持 jsapi，请使用 native'})
+      raise serializers.ValidationError({'payment_mode': '支付宝暂不支持 jsapi，请使用 native 或 h5'})
     return attrs
 
 

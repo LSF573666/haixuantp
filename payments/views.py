@@ -49,7 +49,8 @@ class CreateRechargeView(APIView):
       '创建充值订单并返回支付参数。\n'
       '- 微信 `payment_mode=native`（默认）：返回 `code_url` / `qr_code` 扫码支付\n'
       '- 微信 `payment_mode=jsapi`：需传 `openid`，返回 `jsapi_params` 供微信内调起支付\n'
-      '- 支付宝：扫码（`qr_code`）'
+      '- 支付宝 `payment_mode=native`（默认）：返回 `qr_code` 扫码\n'
+      '- 支付宝 `payment_mode=h5`：返回 `pay_url`，前端跳转完成手机网站支付'
     ),
     request=CreateRechargeSerializer,
     responses={201: dict},

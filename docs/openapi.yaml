@@ -578,6 +578,10 @@ paths:
 
         - 微信 JSAPI：传 `payment_mode=jsapi` 与 `openid`，用 `pay_data.jsapi_params` 调起支付
 
+        - 支付宝 Native：扫码（`qr_code`）
+
+        - 支付宝 H5：传 `payment_mode=h5`，用 `pay_data.pay_url` 跳转手机网站支付
+
         支付成功后服务端回调自动赠送，可用订单号轮询状态。'
       summary: 按礼物价格发起支付
       tags:
@@ -757,7 +761,9 @@ paths:
 
         - 微信 `payment_mode=jsapi`：需传 `openid`，返回 `jsapi_params` 供微信内调起支付
 
-        - 支付宝：扫码（`qr_code`）'
+        - 支付宝 `payment_mode=native`（默认）：返回 `qr_code` 扫码
+
+        - 支付宝 `payment_mode=h5`：返回 `pay_url`，前端跳转完成手机网站支付'
       summary: 创建充值订单
       tags:
       - 钱包
@@ -1485,6 +1491,10 @@ paths:
 
         - 微信 JSAPI：传 `payment_mode=jsapi` 与 `openid`，用 `pay_data.jsapi_params` 调起支付
 
+        - 支付宝 Native：扫码（`qr_code`）
+
+        - 支付宝 H5：传 `payment_mode=h5`，用 `pay_data.pay_url` 跳转手机网站支付
+
         支付成功后服务端回调自动赠送，可用订单号轮询状态。'
       summary: 按礼物价格发起支付
       tags:
@@ -1664,7 +1674,9 @@ paths:
 
         - 微信 `payment_mode=jsapi`：需传 `openid`，返回 `jsapi_params` 供微信内调起支付
 
-        - 支付宝：扫码（`qr_code`）'
+        - 支付宝 `payment_mode=native`（默认）：返回 `qr_code` 扫码
+
+        - 支付宝 `payment_mode=h5`：返回 `pay_url`，前端跳转完成手机网站支付'
       summary: 创建充值订单
       tags:
       - 钱包
@@ -2389,12 +2401,14 @@ components:
           allOf:
           - $ref: '#/components/schemas/PaymentModeEnum'
           default: native
-          description: '微信支付模式：native=扫码（默认）；jsapi=微信内调起（需 openid）
+          description: '支付模式：native=扫码（默认）；jsapi=微信内调起（需 openid）；h5=支付宝手机网站跳转
 
 
             * `native` - Native 扫码
 
-            * `jsapi` - JSAPI 微信内支付'
+            * `jsapi` - JSAPI 微信内支付
+
+            * `h5` - 支付宝 H5 手机网站支付'
         openid:
           type: string
           description: 微信用户 openid；payment_mode=jsapi 时必填，须与商户 AppID 对应
@@ -2775,12 +2789,14 @@ components:
           allOf:
           - $ref: '#/components/schemas/PaymentModeEnum'
           default: native
-          description: '微信支付模式：native=扫码（默认）；jsapi=微信内调起（需 openid）
+          description: '支付模式：native=扫码（默认）；jsapi=微信内调起（需 openid）；h5=支付宝手机网站跳转
 
 
             * `native` - Native 扫码
 
-            * `jsapi` - JSAPI 微信内支付'
+            * `jsapi` - JSAPI 微信内支付
+
+            * `h5` - 支付宝 H5 手机网站支付'
         openid:
           type: string
           description: 微信用户 openid；payment_mode=jsapi 时必填，须与商户 AppID 对应
@@ -2801,10 +2817,13 @@ components:
       enum:
       - native
       - jsapi
+      - h5
       type: string
       description: '* `native` - Native 扫码
 
-        * `jsapi` - JSAPI 微信内支付'
+        * `jsapi` - JSAPI 微信内支付
+
+        * `h5` - 支付宝 H5 手机网站支付'
     PaymentOrder:
       type: object
       properties:

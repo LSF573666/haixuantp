@@ -72,6 +72,8 @@ class PayGiftView(APIView):
       '根据礼物单价 × 数量自动计算应付金额，创建微信/支付宝订单。\n'
       '- 微信 Native（默认）：用 `pay_data.code_url` / `qr_code` 展示二维码\n'
       '- 微信 JSAPI：传 `payment_mode=jsapi` 与 `openid`，用 `pay_data.jsapi_params` 调起支付\n'
+      '- 支付宝 Native：扫码（`qr_code`）\n'
+      '- 支付宝 H5：传 `payment_mode=h5`，用 `pay_data.pay_url` 跳转手机网站支付\n'
       '支付成功后服务端回调自动赠送，可用订单号轮询状态。'
     ),
     request=PayGiftSerializer,

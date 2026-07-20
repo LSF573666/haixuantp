@@ -102,6 +102,9 @@ def _build_pay_data(order: PaymentOrder, description: str, *, payment_mode: str 
   }
   if result.payment_mode == 'jsapi':
     pay_data['jsapi_params'] = result.jsapi_params or {}
+  elif result.payment_mode == 'h5':
+    pay_data['pay_url'] = result.payment_url
+    pay_data['payment_link_url'] = result.payment_url
   else:
     pay_data['code_url'] = result.payment_url
     pay_data['qr_code'] = result.payment_url
