@@ -51,7 +51,7 @@ def _withdraw_notify_url(channel: str) -> str:
   return (getattr(settings, 'ALIPAY_WITHDRAW_NOTIFY_URL', '') or '').strip()
 
 
-def _build_pay_data(order: PaymentOrder, description: str) -> dict:
+def _build_pay_data(order: PaymentOrder, description: str, *, payment_mode: str = 'native', openid: str = '') -> dict:
   notify_url = _pay_notify_url(order.payment_method)
   if not notify_url:
     return {
@@ -73,12 +73,15 @@ def _build_pay_data(order: PaymentOrder, description: str) -> dict:
       'message': '支付未配置，开发环境请使用 /api/payments/dev-pay/',
     }
 
+  mode = (payment_mode or 'native').strip().lower() or 'native'
   result = create_payment_order(
     channel=order.payment_method,
     out_trade_no=order.order_no,
     amount=order.amount,
     notify_url=notify_url,
     description=description,
+    payment_mode=mode,
+    openid=openid,
   )
   if not result.ok:
     raise ValueError(result.message or '创建支付失败')
@@ -86,21 +89,26 @@ def _build_pay_data(order: PaymentOrder, description: str) -> dict:
   pay_data = {
     'order_no': order.order_no,
     'payment_mode': result.payment_mode,
-    'code_url': result.payment_url,
-    'qr_code': result.payment_url,
     'expires_at': result.expires_at.isoformat() if result.expires_at else None,
   }
+  if result.payment_mode == 'jsapi':
+    pay_data['jsapi_params'] = result.jsapi_params or {}
+  else:
+    pay_data['code_url'] = result.payment_url
+    pay_data['qr_code'] = result.payment_url
+
+  extra = {**(order.extra_data or {}), 'payment_mode': result.payment_mode}
   if result.provider_payload:
-    order.extra_data = {
-      **(order.extra_data or {}),
-      'provider_payload': result.provider_payload,
-    }
-    order.save(update_fields=['extra_data', 'updated_at'])
+    extra['provider_payload'] = result.provider_payload
+  if openid and order.payment_method == 'wechat':
+    extra['openid'] = openid
+  order.extra_data = extra
+  order.save(update_fields=['extra_data', 'updated_at'])
   return pay_data
 
 
 @transaction.atomic
-def create_recharge_order(user, amount, payment_method):
+def create_recharge_order(user, amount, payment_method, *, payment_mode='native', openid=''):
   """创建充值订单并发起第三方支付。"""
   amount = _quantize(amount)
   if amount < MIN_AMOUNT:
@@ -116,13 +124,20 @@ def create_recharge_order(user, amount, payment_method):
     amount=amount,
     status=PaymentOrder.Status.PENDING,
   )
-  pay_data = _build_pay_data(order, description=f'账户充值-{order.order_no}')
+  pay_data = _build_pay_data(
+    order,
+    description=f'账户充值-{order.order_no}',
+    payment_mode=payment_mode,
+    openid=openid,
+  )
   return order, pay_data
 
 
 @transaction.atomic
-def create_gift_payment_order(user, candidate_id, gift_id, quantity, payment_method):
-  """创建礼物直付订单（微信/支付宝扫码支付成功后赠送）。"""
+def create_gift_payment_order(
+  user, candidate_id, gift_id, quantity, payment_method, *, payment_mode='native', openid='',
+):
+  """创建礼物直付订单（微信/支付宝支付成功后赠送）。"""
   if quantity < 1:
     raise ValueError('数量必须大于0')
   if payment_method not in (PaymentOrder.PaymentMethod.WECHAT, PaymentOrder.PaymentMethod.ALIPAY):
@@ -157,7 +172,12 @@ def create_gift_payment_order(user, candidate_id, gift_id, quantity, payment_met
       'candidate_name': candidate.name,
     },
   )
-  pay_data = _build_pay_data(order, description=f'礼物-{gift.name}')
+  pay_data = _build_pay_data(
+    order,
+    description=f'礼物-{gift.name}',
+    payment_mode=payment_mode,
+    openid=openid,
+  )
   return order, pay_data
 
 

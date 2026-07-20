@@ -30,6 +30,30 @@ class PayGiftSerializer(serializers.Serializer):
     choices=[('wechat', '微信支付'), ('alipay', '支付宝')],
     help_text='支付方式（金额由礼物价格自动计算）',
   )
+  payment_mode = serializers.ChoiceField(
+    choices=[('native', 'Native 扫码'), ('jsapi', 'JSAPI 微信内支付')],
+    default='native',
+    required=False,
+    help_text='微信支付模式：native=扫码（默认）；jsapi=微信内调起（需 openid）',
+  )
+  openid = serializers.CharField(
+    required=False,
+    allow_blank=True,
+    max_length=128,
+    help_text='微信用户 openid；payment_mode=jsapi 时必填，须与商户 AppID 对应',
+  )
+
+  def validate(self, attrs):
+    payment_method = attrs.get('payment_method')
+    payment_mode = (attrs.get('payment_mode') or 'native').strip().lower()
+    openid = (attrs.get('openid') or '').strip()
+    attrs['payment_mode'] = payment_mode
+    attrs['openid'] = openid
+    if payment_method == 'wechat' and payment_mode == 'jsapi' and not openid:
+      raise serializers.ValidationError({'openid': 'JSAPI 支付需要传微信用户 openid'})
+    if payment_method == 'alipay' and payment_mode == 'jsapi':
+      raise serializers.ValidationError({'payment_mode': '支付宝暂不支持 jsapi，请使用 native'})
+    return attrs
 
 
 class GiftTransactionSerializer(serializers.ModelSerializer):

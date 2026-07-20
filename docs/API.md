@@ -749,19 +749,33 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 
 ### 4.1 按礼物价格发起支付（推荐）
 
-根据礼物单价自动计算应付金额（`单价 × 数量`），创建微信/支付宝扫码订单。前端**不必传金额**。
+根据礼物单价自动计算应付金额（`单价 × 数量`），创建微信/支付宝订单。前端**不必传金额**。
 
 - **URL**: `POST /api/gifts/pay/`
 - **鉴权**: 需要
 
-**请求体:**
+**请求体（Native 扫码，默认）:**
 
 ```json
 {
   "candidate_id": 1,
   "gift_id": 1,
   "quantity": 2,
-  "payment_method": "wechat"
+  "payment_method": "wechat",
+  "payment_mode": "native"
+}
+```
+
+**请求体（微信 JSAPI，微信内支付）:**
+
+```json
+{
+  "candidate_id": 1,
+  "gift_id": 1,
+  "quantity": 2,
+  "payment_method": "wechat",
+  "payment_mode": "jsapi",
+  "openid": "用户在商户AppID下的openid"
 }
 ```
 
@@ -771,8 +785,10 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 | `gift_id` | 礼物 ID（价格从礼物表读取） |
 | `quantity` | 数量，默认 1 |
 | `payment_method` | `wechat` \| `alipay` |
+| `payment_mode` | `native`（默认扫码）\| `jsapi`（仅微信；需 `openid`） |
+| `openid` | 微信用户 openid；`jsapi` 时必填 |
 
-**成功响应 (201):**
+**成功响应 Native (201):**
 
 ```json
 {
@@ -813,11 +829,30 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 }
 ```
 
+**成功响应 JSAPI 时 `pay_data`:**
+
+```json
+{
+  "order_no": "GFXXXXXXXX",
+  "payment_mode": "jsapi",
+  "jsapi_params": {
+    "appId": "wx...",
+    "timeStamp": "1710000000",
+    "nonceStr": "abc123",
+    "package": "prepay_id=wx...",
+    "signType": "RSA",
+    "paySign": "..."
+  },
+  "expires_at": "2026-07-15T10:02:00+08:00"
+}
+```
+
 **前端流程:**
 
 1. `GET /api/gifts/` 展示礼物及 `price`
 2. 用户选择礼物与数量 → `POST /api/gifts/pay/`
-3. 用 `pay_data.code_url` / `qr_code` 生成二维码
+3. Native：用 `pay_data.code_url` / `qr_code` 生成二维码，微信「扫一扫」付款  
+   JSAPI：在微信内用 `pay_data.jsapi_params` 调起 `WeixinJSBridge.invoke('getBrandWCPayRequest', ...)`
 4. 轮询 `GET /api/payments/orders/{order_no}/`，`status=paid` 即支付成功并已自动赠送
 
 本地未配支付时可对返回的 `order_no` 调 `POST /api/payments/dev-pay/` 模拟成功。
@@ -893,18 +928,34 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 
 - **URL**: `POST /api/payments/recharge/`
 
-**请求体:**
+**请求体（Native 扫码，默认）:**
 
 ```json
 {
   "amount": "100.00",
-  "payment_method": "wechat"
+  "payment_method": "wechat",
+  "payment_mode": "native"
 }
 ```
 
-`payment_method`: `wechat` | `alipay`
+**请求体（微信 JSAPI）:**
 
-**成功响应 (201):**
+```json
+{
+  "amount": "100.00",
+  "payment_method": "wechat",
+  "payment_mode": "jsapi",
+  "openid": "用户在商户AppID下的openid"
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `payment_method` | `wechat` \| `alipay` |
+| `payment_mode` | `native`（默认）\| `jsapi`（仅微信；需 `openid`） |
+| `openid` | 微信用户 openid；`jsapi` 时必填 |
+
+**成功响应 Native (201):**
 
 ```json
 {
@@ -925,6 +976,24 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
     "qr_code": "weixin://wxpay/bizpayurl?pr=xxxx",
     "expires_at": "2026-07-15T10:02:00+08:00"
   }
+}
+```
+
+**成功响应 JSAPI 时 `pay_data`:**
+
+```json
+{
+  "order_no": "RCXXXXXXXX",
+  "payment_mode": "jsapi",
+  "jsapi_params": {
+    "appId": "wx...",
+    "timeStamp": "1710000000",
+    "nonceStr": "abc123",
+    "package": "prepay_id=wx...",
+    "signType": "RSA",
+    "paySign": "..."
+  },
+  "expires_at": "2026-07-15T10:02:00+08:00"
 }
 ```
 

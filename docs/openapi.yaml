@@ -572,9 +572,13 @@ paths:
   /api/gifts/pay/:
     post:
       operationId: gifts_pay_create
-      description: '根据礼物单价 × 数量自动计算应付金额，创建微信/支付宝扫码订单。
+      description: '根据礼物单价 × 数量自动计算应付金额，创建微信/支付宝订单。
 
-        前端用返回的 `pay_data.code_url` / `qr_code` 展示二维码；支付成功后服务端回调自动赠送，可用订单号轮询状态。'
+        - 微信 Native（默认）：用 `pay_data.code_url` / `qr_code` 展示二维码
+
+        - 微信 JSAPI：传 `payment_mode=jsapi` 与 `openid`，用 `pay_data.jsapi_params` 调起支付
+
+        支付成功后服务端回调自动赠送，可用订单号轮询状态。'
       summary: 按礼物价格发起支付
       tags:
       - 礼物
@@ -747,7 +751,13 @@ paths:
   /api/payments/recharge/:
     post:
       operationId: payments_recharge_create
-      description: 创建充值订单并返回微信/支付宝 Native 扫码支付参数（code_url / qr_code）。
+      description: '创建充值订单并返回支付参数。
+
+        - 微信 `payment_mode=native`（默认）：返回 `code_url` / `qr_code` 扫码支付
+
+        - 微信 `payment_mode=jsapi`：需传 `openid`，返回 `jsapi_params` 供微信内调起支付
+
+        - 支付宝：扫码（`qr_code`）'
       summary: 创建充值订单
       tags:
       - 钱包
@@ -1469,9 +1479,13 @@ paths:
   /gifts/pay/:
     post:
       operationId: gifts_pay_create_2
-      description: '根据礼物单价 × 数量自动计算应付金额，创建微信/支付宝扫码订单。
+      description: '根据礼物单价 × 数量自动计算应付金额，创建微信/支付宝订单。
 
-        前端用返回的 `pay_data.code_url` / `qr_code` 展示二维码；支付成功后服务端回调自动赠送，可用订单号轮询状态。'
+        - 微信 Native（默认）：用 `pay_data.code_url` / `qr_code` 展示二维码
+
+        - 微信 JSAPI：传 `payment_mode=jsapi` 与 `openid`，用 `pay_data.jsapi_params` 调起支付
+
+        支付成功后服务端回调自动赠送，可用订单号轮询状态。'
       summary: 按礼物价格发起支付
       tags:
       - 礼物
@@ -1644,7 +1658,13 @@ paths:
   /payments/recharge/:
     post:
       operationId: payments_recharge_create_2
-      description: 创建充值订单并返回微信/支付宝 Native 扫码支付参数（code_url / qr_code）。
+      description: '创建充值订单并返回支付参数。
+
+        - 微信 `payment_mode=native`（默认）：返回 `code_url` / `qr_code` 扫码支付
+
+        - 微信 `payment_mode=jsapi`：需传 `openid`，返回 `jsapi_params` 供微信内调起支付
+
+        - 支付宝：扫码（`qr_code`）'
       summary: 创建充值订单
       tags:
       - 钱包
@@ -2365,6 +2385,20 @@ components:
             * `wechat` - 微信支付
 
             * `alipay` - 支付宝'
+        payment_mode:
+          allOf:
+          - $ref: '#/components/schemas/PaymentModeEnum'
+          default: native
+          description: '微信支付模式：native=扫码（默认）；jsapi=微信内调起（需 openid）
+
+
+            * `native` - Native 扫码
+
+            * `jsapi` - JSAPI 微信内支付'
+        openid:
+          type: string
+          description: 微信用户 openid；payment_mode=jsapi 时必填，须与商户 AppID 对应
+          maxLength: 128
       required:
       - amount
       - payment_method
@@ -2737,6 +2771,20 @@ components:
             * `wechat` - 微信支付
 
             * `alipay` - 支付宝'
+        payment_mode:
+          allOf:
+          - $ref: '#/components/schemas/PaymentModeEnum'
+          default: native
+          description: '微信支付模式：native=扫码（默认）；jsapi=微信内调起（需 openid）
+
+
+            * `native` - Native 扫码
+
+            * `jsapi` - JSAPI 微信内支付'
+        openid:
+          type: string
+          description: 微信用户 openid；payment_mode=jsapi 时必填，须与商户 AppID 对应
+          maxLength: 128
       required:
       - candidate_id
       - gift_id
@@ -2749,6 +2797,14 @@ components:
       description: '* `wechat` - 微信支付
 
         * `alipay` - 支付宝'
+    PaymentModeEnum:
+      enum:
+      - native
+      - jsapi
+      type: string
+      description: '* `native` - Native 扫码
+
+        * `jsapi` - JSAPI 微信内支付'
     PaymentOrder:
       type: object
       properties:

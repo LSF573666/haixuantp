@@ -69,8 +69,9 @@ class PayGiftView(APIView):
     tags=['礼物'],
     summary='按礼物价格发起支付',
     description=(
-      '根据礼物单价 × 数量自动计算应付金额，创建微信/支付宝扫码订单。\n'
-      '前端用返回的 `pay_data.code_url` / `qr_code` 展示二维码；'
+      '根据礼物单价 × 数量自动计算应付金额，创建微信/支付宝订单。\n'
+      '- 微信 Native（默认）：用 `pay_data.code_url` / `qr_code` 展示二维码\n'
+      '- 微信 JSAPI：传 `payment_mode=jsapi` 与 `openid`，用 `pay_data.jsapi_params` 调起支付\n'
       '支付成功后服务端回调自动赠送，可用订单号轮询状态。'
     ),
     request=PayGiftSerializer,
@@ -83,6 +84,8 @@ class PayGiftView(APIView):
     gift_id = serializer.validated_data['gift_id']
     quantity = serializer.validated_data.get('quantity', 1)
     payment_method = serializer.validated_data['payment_method']
+    payment_mode = serializer.validated_data.get('payment_mode', 'native')
+    openid = serializer.validated_data.get('openid', '')
 
     try:
       gift = Gift.objects.get(pk=gift_id, is_active=True)
@@ -97,6 +100,8 @@ class PayGiftView(APIView):
         gift_id,
         quantity,
         payment_method,
+        payment_mode=payment_mode,
+        openid=openid,
       )
     except ValueError as e:
       return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)

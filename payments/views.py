@@ -43,7 +43,12 @@ class CreateRechargeView(APIView):
   @extend_schema(
     tags=['钱包'],
     summary='创建充值订单',
-    description='创建充值订单并返回微信/支付宝 Native 扫码支付参数（code_url / qr_code）。',
+    description=(
+      '创建充值订单并返回支付参数。\n'
+      '- 微信 `payment_mode=native`（默认）：返回 `code_url` / `qr_code` 扫码支付\n'
+      '- 微信 `payment_mode=jsapi`：需传 `openid`，返回 `jsapi_params` 供微信内调起支付\n'
+      '- 支付宝：扫码（`qr_code`）'
+    ),
     request=CreateRechargeSerializer,
     responses={201: dict},
   )
@@ -52,9 +57,17 @@ class CreateRechargeView(APIView):
     serializer.is_valid(raise_exception=True)
     amount = serializer.validated_data['amount']
     payment_method = serializer.validated_data['payment_method']
+    payment_mode = serializer.validated_data.get('payment_mode', 'native')
+    openid = serializer.validated_data.get('openid', '')
 
     try:
-      order, pay_data = create_recharge_order(request.user, amount, payment_method)
+      order, pay_data = create_recharge_order(
+        request.user,
+        amount,
+        payment_method,
+        payment_mode=payment_mode,
+        openid=openid,
+      )
     except ValueError as e:
       return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

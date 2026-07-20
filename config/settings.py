@@ -183,7 +183,8 @@ ALIYUN_SMS_REGION = os.getenv('ALIYUN_SMS_REGION', 'cn-hangzhou')
 ALIYUN_SMS_SIGN_NAME = os.getenv('ALIYUN_SMS_SIGN_NAME', '')
 ALIYUN_SMS_TEMPLATE_CODE = os.getenv('ALIYUN_SMS_TEMPLATE_CODE', '')
 
-# WeChat Pay APIv3（Native 扫码 + 商家转账提现）
+# WeChat Pay APIv3（Native 扫码 / JSAPI + 商家转账提现）
+
 # 兼容旧变量名 WECHAT_APP_ID / WECHAT_MCH_ID / WECHAT_NOTIFY_URL
 WECHAT_PAY_APP_ID = os.getenv('WECHAT_PAY_APP_ID', os.getenv('WECHAT_APP_ID', ''))
 WECHAT_PAY_MCH_ID = os.getenv('WECHAT_PAY_MCH_ID', os.getenv('WECHAT_MCH_ID', ''))

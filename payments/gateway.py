@@ -52,6 +52,7 @@ class CreatePaymentResult:
     expires_at: datetime | None = None
     provider_trade_no: str = ""
     provider_payload: dict | None = None
+    jsapi_params: dict | None = None
 
 
 @dataclass
@@ -408,20 +409,47 @@ def _create_alipay_order(
     )
 
 
+def _build_wechat_jsapi_params(*, app_id: str, prepay_id: str, private_key: str) -> dict:
+    """APIv3 JSAPI 调起支付参数（前端 WeixinJSBridge / wx.chooseWXPay）。"""
+    timestamp = str(int(time.time()))
+    nonce = secrets.token_hex(16)
+    package = f"prepay_id={prepay_id}"
+    sign_src = f"{app_id}\n{timestamp}\n{nonce}\n{package}\n"
+    return {
+        "appId": app_id,
+        "timeStamp": timestamp,
+        "nonceStr": nonce,
+        "package": package,
+        "signType": "RSA",
+        "paySign": _sign_with_rsa_sha256(sign_src, private_key),
+    }
+
+
 def _create_wechat_order(
     *,
     out_trade_no: str,
     amount: Decimal,
     notify_url: str,
     description: str = "",
+    payment_mode: str = "native",
+    openid: str = "",
 ) -> CreatePaymentResult:
     """
-    WeChat Pay APIv3 Native 下单。
+    WeChat Pay APIv3 下单（Native 扫码 / JSAPI 公众号或微信内 H5）。
 
-    - 直连商户：/v3/pay/transactions/native，Authorization 里的 mchid 须与证书商户号一致。
-    - 服务商模式：/v3/pay/partner/transactions/native，Authorization 里的 mchid 必须是 **sp_mchid**
+    - 直连商户：/v3/pay/transactions/{native|jsapi}，Authorization 里的 mchid 须与证书商户号一致。
+    - 服务商模式：/v3/pay/partner/transactions/{native|jsapi}，Authorization 里的 mchid 必须是 **sp_mchid**
       （即持有 WECHAT_PAY_MCH_PRIVATE_KEY / serial 的服务商商户号），不能用子商户号，否则会 SIGN_ERROR。
+    - JSAPI 必须传用户 openid（与下单 appid 对应）。
     """
+    mode = (payment_mode or "native").strip().lower()
+    if mode not in ("native", "jsapi"):
+        return CreatePaymentResult(ok=False, message="unsupported_wechat_payment_mode")
+
+    payer_openid = (openid or "").strip()
+    if mode == "jsapi" and not payer_openid:
+        return CreatePaymentResult(ok=False, message="wechat_jsapi_openid_required")
+
     serial_no = os.environ.get("WECHAT_PAY_MCH_SERIAL_NO", "").strip()
     private_key = _load_secret_from_env_or_file(os.environ.get("WECHAT_PAY_MCH_PRIVATE_KEY", ""))
     api_v3_key = _load_secret_from_env_or_file(os.environ.get("WECHAT_PAY_API_V3_KEY", ""))
@@ -433,15 +461,18 @@ def _create_wechat_order(
     mchid_direct = (os.environ.get("WECHAT_PAY_MCH_ID") or "").strip()
     appid_direct = (os.environ.get("WECHAT_PAY_APP_ID") or "").strip()
     desc = (description or f"Recharge {out_trade_no}")[:127]
+    expires_at = dj_timezone.now() + timedelta(minutes=2)
+    amount_body = {"total": int(Decimal(amount) * 100), "currency": "CNY"}
+    time_expire = expires_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     partner_mode = bool(sub_mchid)
+    jsapi_appid = ""
     if partner_mode:
         sp_mchid = sp_mchid or mchid_direct
         sp_appid = sp_appid or appid_direct
         if not all([sp_mchid, sp_appid, sub_mchid, serial_no, private_key, api_v3_key]):
             return CreatePaymentResult(ok=False, message="wechat_config_missing_partner")
         auth_mchid = sp_mchid
-        expires_at = dj_timezone.now() + timedelta(minutes=2)
         body: dict = {
             "sp_appid": sp_appid,
             "sp_mchid": sp_mchid,
@@ -449,29 +480,39 @@ def _create_wechat_order(
             "description": desc,
             "out_trade_no": out_trade_no,
             "notify_url": notify_url,
-            "amount": {"total": int(Decimal(amount) * 100), "currency": "CNY"},
-            "time_expire": expires_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "amount": amount_body,
+            "time_expire": time_expire,
         }
         if sub_appid:
             body["sub_appid"] = sub_appid
-        request_path = "/v3/pay/partner/transactions/native"
-        url = "https://api.mch.weixin.qq.com/v3/pay/partner/transactions/native"
+        if mode == "jsapi":
+            # 配置了子商户 appid 时，openid 按 sub_openid；否则按 sp_openid。
+            if sub_appid:
+                body["payer"] = {"sub_openid": payer_openid}
+                jsapi_appid = sub_appid
+            else:
+                body["payer"] = {"sp_openid": payer_openid}
+                jsapi_appid = sp_appid
+        request_path = f"/v3/pay/partner/transactions/{mode}"
+        url = f"https://api.mch.weixin.qq.com/v3/pay/partner/transactions/{mode}"
     else:
         if not all([mchid_direct, appid_direct, serial_no, private_key, api_v3_key]):
             return CreatePaymentResult(ok=False, message="wechat_config_missing")
         auth_mchid = mchid_direct
-        expires_at = dj_timezone.now() + timedelta(minutes=2)
+        jsapi_appid = appid_direct
         body = {
             "appid": appid_direct,
             "mchid": mchid_direct,
             "description": desc,
             "out_trade_no": out_trade_no,
             "notify_url": notify_url,
-            "amount": {"total": int(Decimal(amount) * 100), "currency": "CNY"},
-            "time_expire": expires_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "amount": amount_body,
+            "time_expire": time_expire,
         }
-        request_path = "/v3/pay/transactions/native"
-        url = "https://api.mch.weixin.qq.com/v3/pay/transactions/native"
+        if mode == "jsapi":
+            body["payer"] = {"openid": payer_openid}
+        request_path = f"/v3/pay/transactions/{mode}"
+        url = f"https://api.mch.weixin.qq.com/v3/pay/transactions/{mode}"
 
     nonce = secrets.token_hex(16)
     timestamp = str(int(time.time()))
@@ -503,6 +544,26 @@ def _create_wechat_order(
                 message=f"wechat_create_failed:sign_error:{hint}",
             )
         return CreatePaymentResult(ok=False, message=f"wechat_create_failed:{err[:200]}")
+
+    if mode == "jsapi":
+        prepay_id = (payload.get("prepay_id") or "").strip()
+        if not prepay_id:
+            return CreatePaymentResult(ok=False, message=f"wechat_prepay_id_missing:{payload}")
+        jsapi_params = _build_wechat_jsapi_params(
+            app_id=jsapi_appid,
+            prepay_id=prepay_id,
+            private_key=private_key,
+        )
+        return CreatePaymentResult(
+            ok=True,
+            message="ok",
+            payment_mode="jsapi",
+            expires_at=expires_at,
+            provider_trade_no="",
+            provider_payload={**(payload or {}), "jsapi_params": jsapi_params},
+            jsapi_params=jsapi_params,
+        )
+
     code_url = (payload.get("code_url") or "").strip()
     if not code_url:
         return CreatePaymentResult(ok=False, message=f"wechat_code_url_missing:{payload}")
@@ -524,6 +585,8 @@ def create_payment_order(
     amount: Decimal,
     notify_url: str,
     description: str = "",
+    payment_mode: str = "native",
+    openid: str = "",
 ) -> CreatePaymentResult:
     if channel == "wechat":
         return _create_wechat_order(
@@ -531,6 +594,8 @@ def create_payment_order(
             amount=amount,
             notify_url=notify_url,
             description=description,
+            payment_mode=payment_mode,
+            openid=openid,
         )
     if channel == "alipay":
         return _create_alipay_order(
