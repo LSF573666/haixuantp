@@ -62,6 +62,13 @@ def _withdraw_notify_url(channel: str) -> str:
 
 def _build_pay_data(order: PaymentOrder, description: str, *, payment_mode: str = 'native', openid: str = '') -> dict:
   notify_url = _pay_notify_url(order.payment_method)
+  return_url = (getattr(settings, 'ALIPAY_RETURN_URL', '') or '').strip() if order.payment_method == 'alipay' else ''
+  print(
+    f'[支付回调] order_no={order.order_no} channel={order.payment_method} '
+    f'mode={payment_mode} notify_url={notify_url or "(未配置)"} '
+    f'return_url={return_url or "(无/不适用)"}',
+    flush=True,
+  )
   if not notify_url:
     return {
       'dev_mode': True,
