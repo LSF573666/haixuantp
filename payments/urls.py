@@ -3,6 +3,7 @@ from django.urls import path
 from payments.views import (
   AlipayNotifyView,
   AlipayWithdrawNotifyView,
+  CreateRechargeJsapiView,
   CreateRechargeView,
   CreateWithdrawView,
   DevPayView,
@@ -18,6 +19,7 @@ from payments.views import (
 urlpatterns = [
   path('wallet/', WalletBalanceView.as_view(), name='wallet-balance'),
   path('recharge/', CreateRechargeView.as_view(), name='create-recharge'),
+  path('recharge/jsapi/', CreateRechargeJsapiView.as_view(), name='create-recharge-jsapi'),
   path('dev-pay/', DevPayView.as_view(), name='dev-pay'),
   path('orders/', OrderListView.as_view(), name='order-list'),
   path('orders/<str:order_no>/', OrderDetailView.as_view(), name='order-detail'),

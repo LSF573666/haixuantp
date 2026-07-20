@@ -45,6 +45,15 @@ def _pay_notify_url(channel: str) -> str:
   return (getattr(settings, 'ALIPAY_NOTIFY_URL', '') or '').strip()
 
 
+def resolve_wechat_openid(user, openid: str = '') -> str:
+  """优先用请求传入的 openid，否则回退到已绑定的微信收款账号。"""
+  value = (openid or '').strip()
+  if value:
+    return value
+  payee = PayeeAccount.objects.filter(user=user, channel=PayeeAccount.Channel.WECHAT).first()
+  return ((payee.account if payee else '') or '').strip()
+
+
 def _withdraw_notify_url(channel: str) -> str:
   if channel == 'wechat':
     return (getattr(settings, 'WECHAT_PAY_WITHDRAW_NOTIFY_URL', '') or '').strip()

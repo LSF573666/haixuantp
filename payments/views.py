@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from payments.models import PayeeAccount, PaymentOrder, WithdrawOrder
 from payments.serializers import (
   BindPayeeSerializer,
+  CreateRechargeJsapiSerializer,
   CreateRechargeSerializer,
   CreateWithdrawSerializer,
   DevPaySerializer,
@@ -24,6 +25,7 @@ from payments.services import (
   create_withdraw_order,
   handle_payment_notify,
   handle_withdraw_notify,
+  resolve_wechat_openid,
   unbind_payee_account,
 )
 
@@ -66,6 +68,49 @@ class CreateRechargeView(APIView):
         amount,
         payment_method,
         payment_mode=payment_mode,
+        openid=openid,
+      )
+    except ValueError as e:
+      return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({
+      'order': PaymentOrderSerializer(order).data,
+      'pay_data': pay_data,
+    }, status=status.HTTP_201_CREATED)
+
+
+class CreateRechargeJsapiView(APIView):
+  """微信 JSAPI 充值专用入口（兼容前端 /api/payments/recharge/jsapi/）。"""
+
+  permission_classes = [IsAuthenticated]
+
+  @extend_schema(
+    tags=['钱包'],
+    summary='创建微信 JSAPI 充值订单',
+    description=(
+      '强制使用微信 JSAPI 支付，返回 `pay_data.jsapi_params` 供微信内调起。\n'
+      '请求需传 `openid`；未传时尝试使用用户已绑定的微信收款账号。'
+    ),
+    request=CreateRechargeJsapiSerializer,
+    responses={201: dict},
+  )
+  def post(self, request):
+    serializer = CreateRechargeJsapiSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    amount = serializer.validated_data['amount']
+    openid = resolve_wechat_openid(request.user, serializer.validated_data.get('openid', ''))
+    if not openid:
+      return Response(
+        {'detail': 'JSAPI 支付需要 openid，请传 openid 或先绑定微信收款账号'},
+        status=status.HTTP_400_BAD_REQUEST,
+      )
+
+    try:
+      order, pay_data = create_recharge_order(
+        request.user,
+        amount,
+        PaymentOrder.PaymentMethod.WECHAT,
+        payment_mode='jsapi',
         openid=openid,
       )
     except ValueError as e:

@@ -999,6 +999,8 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 
 支付成功后回调入账，余额增加。可用订单详情接口轮询 `status=paid`。
 
+也可用专用入口：`POST /api/payments/recharge/jsapi/`（强制 JSAPI；body 传 `amount` + `openid`，未传 openid 时尝试用已绑定微信收款账号）。
+
 ### 5.3 模拟支付（仅开发环境）
 
 - **URL**: `POST /api/payments/dev-pay/`

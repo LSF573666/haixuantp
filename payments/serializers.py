@@ -40,6 +40,32 @@ class CreateRechargeSerializer(serializers.Serializer):
     return attrs
 
 
+class CreateRechargeJsapiSerializer(serializers.Serializer):
+  """专用 JSAPI 充值：强制微信 JSAPI，openid 可由请求传入。"""
+
+  amount = serializers.DecimalField(
+    max_digits=10, decimal_places=2, min_value=Decimal('0.01'),
+    help_text='充值金额（元）',
+  )
+  openid = serializers.CharField(
+    required=False,
+    allow_blank=True,
+    max_length=128,
+    help_text='微信用户 openid（与商户 AppID 对应）；未传时尝试使用已绑定的微信收款账号',
+  )
+  payment_method = serializers.ChoiceField(
+    choices=[('wechat', '微信支付')],
+    default='wechat',
+    required=False,
+    help_text='固定为 wechat',
+  )
+
+  def validate(self, attrs):
+    attrs['payment_method'] = 'wechat'
+    attrs['openid'] = (attrs.get('openid') or '').strip()
+    return attrs
+
+
 class PaymentOrderSerializer(serializers.ModelSerializer):
   class Meta:
     model = PaymentOrder
