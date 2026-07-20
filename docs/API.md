@@ -299,9 +299,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 | 接口 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
-| `/api/candidates/` | GET | 否 | 候选人列表，支持按性别、报名类型筛选，以及按热度/票数排序 |
+| `/api/candidates/` | GET | 否 | 候选人列表，支持按性别、报名类型、名称搜索筛选，以及按热度/票数排序 |
 | `/api/candidates/{id}/` | GET | 否 | 候选人详情（含照片、团体成员、排名与距上一名票数差距） |
-| `/api/candidates/ranking/` | GET | 否 | 排行榜，默认按热度；可改为按投票数，支持按性别、报名类型筛选 |
+| `/api/candidates/ranking/` | GET | 否 | 排行榜，默认按热度；可改为按投票数，支持按性别、报名类型、名称搜索筛选 |
 
 **候选人字段说明:**
 
@@ -326,6 +326,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 |------|------|------|------|
 | `gender` | string | 否 | 按性别筛选，可选 `male`、`female` |
 | `registration_type` | string | 否 | 按报名类型筛选，可选 `individual`、`group`；**不传则返回全部** |
+| `name` | string | 否 | 按选手名称模糊搜索（个人姓名或团体名称，不区分大小写）；不传则不过滤 |
 | `sort_by` | string | 否 | 排序方式：`heat_score`=按热度值降序，`vote_count`=按投票数降序。列表不传则按编号升序；排行榜不传则默认按热度值 |
 
 **前端调用示例:**
@@ -334,6 +335,8 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 - 按投票数排行榜：`GET /api/candidates/ranking/?sort_by=vote_count`
 - 列表按热度排序（分页）：`GET /api/candidates/?sort_by=heat_score`
 - 列表按投票数排序（分页）：`GET /api/candidates/?sort_by=vote_count`
+- 按名称搜索：`GET /api/candidates/?name=张三`
+- 排行榜按名称搜索：`GET /api/candidates/ranking/?name=舞团`
 
 **列表响应示例:**
 

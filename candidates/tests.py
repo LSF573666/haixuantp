@@ -370,6 +370,32 @@ class CandidateFilterTests(TestCase):
     self.assertEqual(len(data), 1)
     self.assertEqual(data[0]['registration_type'], RegistrationType.GROUP)
 
+  def test_list_search_by_name(self):
+    response = self.client.get('/api/candidates/', {'name': '女'})
+    self.assertEqual(response.status_code, 200)
+    results = response.json()['results']
+    self.assertEqual(len(results), 1)
+    self.assertEqual(results[0]['name'], '女选手')
+
+  def test_list_search_by_name_partial_match(self):
+    response = self.client.get('/api/candidates/', {'name': '舞团'})
+    self.assertEqual(response.status_code, 200)
+    results = response.json()['results']
+    self.assertEqual(len(results), 1)
+    self.assertEqual(results[0]['name'], '青春舞团')
+
+  def test_list_search_by_name_no_match(self):
+    response = self.client.get('/api/candidates/', {'name': '不存在'})
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.json()['count'], 0)
+
+  def test_ranking_search_by_name(self):
+    response = self.client.get('/api/candidates/ranking/', {'name': '男选手'})
+    self.assertEqual(response.status_code, 200)
+    data = response.json()
+    self.assertEqual(len(data), 1)
+    self.assertEqual(data[0]['name'], '男选手')
+
 
 class CandidateSortByTests(TestCase):
   def setUp(self):

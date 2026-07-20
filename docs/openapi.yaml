@@ -223,7 +223,7 @@ paths:
   /api/candidates/:
     get:
       operationId: candidates_list
-      description: 支持按性别、报名类型筛选；可通过 sort_by 按热度值或投票数降序排列。不传 sort_by 时按参赛编号升序。
+      description: 支持按性别、报名类型筛选，以及按选手名称模糊搜索；可通过 sort_by 按热度值或投票数降序排列。不传 sort_by 时按参赛编号升序。
       summary: 获取候选人列表
       parameters:
       - in: query
@@ -234,6 +234,11 @@ paths:
           - female
           - male
         description: 按性别筛选：male=男，female=女
+      - in: query
+        name: name
+        schema:
+          type: string
+        description: 按选手名称模糊搜索（个人姓名或团体名称，不区分大小写）
       - name: page
         required: false
         in: query
@@ -439,7 +444,7 @@ paths:
   /api/candidates/ranking/:
     get:
       operationId: candidates_ranking_list
-      description: 排行榜，默认按热度值降序；可通过 sort_by=vote_count 改为按投票数降序。支持 gender、registration_type
+      description: 排行榜，默认按热度值降序；可通过 sort_by=vote_count 改为按投票数降序。支持 gender、registration_type、name
         筛选；不传 registration_type 时返回全部。
       summary: 候选人排行榜
       parameters:
@@ -451,6 +456,11 @@ paths:
           - female
           - male
         description: 按性别筛选：male=男，female=女
+      - in: query
+        name: name
+        schema:
+          type: string
+        description: 按选手名称模糊搜索（个人姓名或团体名称，不区分大小写）
       - in: query
         name: registration_type
         schema:
@@ -1110,7 +1120,7 @@ paths:
   /candidates/:
     get:
       operationId: candidates_list_2
-      description: 支持按性别、报名类型筛选；可通过 sort_by 按热度值或投票数降序排列。不传 sort_by 时按参赛编号升序。
+      description: 支持按性别、报名类型筛选，以及按选手名称模糊搜索；可通过 sort_by 按热度值或投票数降序排列。不传 sort_by 时按参赛编号升序。
       summary: 获取候选人列表
       parameters:
       - in: query
@@ -1121,6 +1131,11 @@ paths:
           - female
           - male
         description: 按性别筛选：male=男，female=女
+      - in: query
+        name: name
+        schema:
+          type: string
+        description: 按选手名称模糊搜索（个人姓名或团体名称，不区分大小写）
       - name: page
         required: false
         in: query
@@ -1326,7 +1341,7 @@ paths:
   /candidates/ranking/:
     get:
       operationId: candidates_ranking_list_2
-      description: 排行榜，默认按热度值降序；可通过 sort_by=vote_count 改为按投票数降序。支持 gender、registration_type
+      description: 排行榜，默认按热度值降序；可通过 sort_by=vote_count 改为按投票数降序。支持 gender、registration_type、name
         筛选；不传 registration_type 时返回全部。
       summary: 候选人排行榜
       parameters:
@@ -1338,6 +1353,11 @@ paths:
           - female
           - male
         description: 按性别筛选：male=男，female=女
+      - in: query
+        name: name
+        schema:
+          type: string
+        description: 按选手名称模糊搜索（个人姓名或团体名称，不区分大小写）
       - in: query
         name: registration_type
         schema:

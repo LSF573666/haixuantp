@@ -72,13 +72,21 @@ CANDIDATE_ORDERING = {
 }
 
 
+def filter_candidates_by_name(queryset, name):
+  if not name:
+    return queryset
+  return queryset.filter(name__icontains=name)
+
+
 def apply_candidate_filters(queryset, request):
   gender = request.query_params.get('gender', '').strip()
   registration_type = request.query_params.get('registration_type', '').strip()
+  name = request.query_params.get('name', '').strip()
   validate_gender_param(gender)
   validate_registration_type_param(registration_type)
   queryset = filter_candidates_by_gender(queryset, gender)
-  return filter_candidates_by_registration_type(queryset, registration_type)
+  queryset = filter_candidates_by_registration_type(queryset, registration_type)
+  return filter_candidates_by_name(queryset, name)
 
 
 def validate_sort_by_param(sort_by):
@@ -116,6 +124,13 @@ CANDIDATE_FILTER_PARAMETERS = [
     enum=list(RegistrationType.values),
     description='按报名类型筛选：individual=个人，group=团体；不传则返回全部',
   ),
+  OpenApiParameter(
+    name='name',
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    description='按选手名称模糊搜索（个人姓名或团体名称，不区分大小写）',
+  ),
 ]
 
 CANDIDATE_SORT_PARAMETER = OpenApiParameter(
@@ -140,7 +155,8 @@ class CandidateListView(generics.ListAPIView):
     tags=['候选人'],
     summary='获取候选人列表',
     description=(
-      '支持按性别、报名类型筛选；可通过 sort_by 按热度值或投票数降序排列。'
+      '支持按性别、报名类型筛选，以及按选手名称模糊搜索；'
+      '可通过 sort_by 按热度值或投票数降序排列。'
       '不传 sort_by 时按参赛编号升序。'
     ),
     parameters=[*CANDIDATE_FILTER_PARAMETERS, CANDIDATE_SORT_PARAMETER],
@@ -189,7 +205,7 @@ class CandidateRankingView(APIView):
     summary='候选人排行榜',
     description=(
       '排行榜，默认按热度值降序；可通过 sort_by=vote_count 改为按投票数降序。'
-      '支持 gender、registration_type 筛选；不传 registration_type 时返回全部。'
+      '支持 gender、registration_type、name 筛选；不传 registration_type 时返回全部。'
     ),
     parameters=[*CANDIDATE_FILTER_PARAMETERS, CANDIDATE_SORT_PARAMETER],
     responses={200: CandidateRankingSerializer(many=True)},
