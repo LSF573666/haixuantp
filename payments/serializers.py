@@ -75,11 +75,13 @@ class CreateRechargeJsapiSerializer(serializers.Serializer):
 
 
 class PaymentOrderSerializer(serializers.ModelSerializer):
+  status_display = serializers.CharField(source='get_status_display', read_only=True)
+
   class Meta:
     model = PaymentOrder
     fields = [
       'order_no', 'order_type', 'payment_method', 'amount',
-      'status', 'extra_data', 'paid_at', 'created_at',
+      'status', 'status_display', 'extra_data', 'paid_at', 'created_at',
     ]
     read_only_fields = fields
 

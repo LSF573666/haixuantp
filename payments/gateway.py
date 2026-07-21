@@ -846,6 +846,29 @@ def parse_alipay_notify(post_data: dict) -> NotifyParseResult:
     )
 
 
+def query_alipay_trade(*, out_trade_no: str) -> NotifyParseResult:
+    """主动查询支付宝交易状态（回调丢失时的补偿）。"""
+    out_trade_no = (out_trade_no or "").strip()
+    if not out_trade_no:
+        return NotifyParseResult(ok=False, message="missing_out_trade_no")
+    payload, err = _alipay_api_call(
+        method="alipay.trade.query",
+        biz_content={"out_trade_no": out_trade_no},
+    )
+    if not payload:
+        return NotifyParseResult(ok=False, message=err or "alipay_query_failed")
+    result = payload.get("alipay_trade_query_response") or {}
+    trade_status = (result.get("trade_status") or "").strip()
+    return NotifyParseResult(
+        ok=True,
+        message=trade_status or "ok",
+        out_trade_no=(result.get("out_trade_no") or out_trade_no).strip(),
+        provider_trade_no=(result.get("trade_no") or "").strip(),
+        paid=trade_status in ("TRADE_SUCCESS", "TRADE_FINISHED"),
+        raw_payload=result,
+    )
+
+
 def parse_wechat_notify(request) -> NotifyParseResult:
     raw_bytes = request.body or b""
     try:

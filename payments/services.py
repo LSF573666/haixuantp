@@ -12,6 +12,7 @@ from payments.gateway import (
   create_payout_transfer,
   parse_alipay_notify,
   parse_wechat_notify,
+  query_alipay_trade,
   wechat_transfer_confirm_payload,
 )
 from payments.models import PayeeAccount, PaymentOrder, PaymentRecord, WithdrawOrder
@@ -260,8 +261,26 @@ def complete_order(order, transaction_id='', raw_data=None):
   return order
 
 
+def sync_pending_payment_order(order: PaymentOrder) -> PaymentOrder:
+  """对待支付订单主动向渠道查单；已支付则入账并改为已支付/已充值。"""
+  if order.status != PaymentOrder.Status.PENDING:
+    return order
+  if order.payment_method != PaymentOrder.PaymentMethod.ALIPAY:
+    return order
+
+  parsed = query_alipay_trade(out_trade_no=order.order_no)
+  if not parsed.ok or not parsed.paid:
+    return order
+
+  return complete_order(
+    order,
+    transaction_id=parsed.provider_trade_no,
+    raw_data=parsed.raw_payload or {},
+  )
+
+
 def handle_payment_notify(*, channel: str, request=None, post_data=None):
-  """处理微信/支付宝支付回调，返回 (ok, response_body, http_content_type)。"""
+  """处理微信/支付宝支付回调，返回 (ok, response_body, detail)。"""
   if channel == 'wechat':
     parsed = parse_wechat_notify(request)
     fail_body = {'code': 'FAIL', 'message': parsed.message}
@@ -272,26 +291,50 @@ def handle_payment_notify(*, channel: str, request=None, post_data=None):
     ok_body = 'success'
 
   if not parsed.ok:
-    return False, fail_body if channel == 'wechat' else fail_body, parsed.message
+    print(
+      f'[支付回调失败] channel={channel} reason={parsed.message} '
+      f'out_trade_no={parsed.out_trade_no or (post_data or {}).get("out_trade_no", "")}',
+      flush=True,
+    )
+    return False, fail_body, parsed.message
 
   if not parsed.paid:
+    print(
+      f'[支付回调未支付] channel={channel} out_trade_no={parsed.out_trade_no} '
+      f'message={parsed.message}',
+      flush=True,
+    )
     return True, ok_body, 'not_paid'
 
   try:
     order = PaymentOrder.objects.get(order_no=parsed.out_trade_no)
   except PaymentOrder.DoesNotExist:
+    print(
+      f'[支付回调无订单] channel={channel} out_trade_no={parsed.out_trade_no}',
+      flush=True,
+    )
     return True, ok_body, 'order_not_found'
 
   if order.status == PaymentOrder.Status.PAID:
     return True, ok_body, 'already_paid'
 
   if order.payment_method and order.payment_method != channel:
+    print(
+      f'[支付回调渠道不匹配] order_no={order.order_no} '
+      f'order_channel={order.payment_method} notify_channel={channel}',
+      flush=True,
+    )
     return False, fail_body, 'channel_mismatch'
 
   complete_order(
     order,
     transaction_id=parsed.provider_trade_no,
     raw_data=parsed.raw_payload or {},
+  )
+  print(
+    f'[支付回调成功] channel={channel} order_no={order.order_no} '
+    f'order_type={order.order_type} status=paid',
+    flush=True,
   )
   return True, ok_body, 'ok'
 

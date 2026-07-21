@@ -26,6 +26,7 @@ from payments.services import (
   handle_payment_notify,
   handle_withdraw_notify,
   resolve_wechat_openid,
+  sync_pending_payment_order,
   unbind_payee_account,
 )
 
@@ -181,6 +182,9 @@ class OrderDetailView(APIView):
       order = PaymentOrder.objects.get(order_no=order_no, user=request.user)
     except PaymentOrder.DoesNotExist:
       return Response({'detail': '订单不存在'}, status=status.HTTP_404_NOT_FOUND)
+    if order.status == PaymentOrder.Status.PENDING:
+      order = sync_pending_payment_order(order)
+      order.refresh_from_db()
     request.user.refresh_from_db(fields=['balance'])
     return Response({
       'order': PaymentOrderSerializer(order).data,

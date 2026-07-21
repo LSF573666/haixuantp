@@ -17,11 +17,17 @@ class PaymentOrder(models.Model):
     BALANCE = 'balance', '余额支付'
 
   class Status(models.TextChoices):
-    PENDING = 'pending', '待支付'
+    PENDING = 'pending', '处理中'
     PAID = 'paid', '已支付'
     FAILED = 'failed', '支付失败'
     CANCELLED = 'cancelled', '已取消'
     REFUNDED = 'refunded', '已退款'
+
+  def get_status_display(self):
+    """充值成功展示为「已充值」，其余沿用 choices 文案。"""
+    if self.status == self.Status.PAID and self.order_type == self.OrderType.RECHARGE:
+      return '已充值'
+    return dict(self.Status.choices).get(self.status, self.status)
 
   order_no = models.CharField('订单号', max_length=64, unique=True, db_index=True)
   user = models.ForeignKey(
