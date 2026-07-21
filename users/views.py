@@ -108,11 +108,12 @@ class PhoneLoginView(APIView):
     if not verify_sms_code(phone, code):
       return Response({'detail': '验证码错误或已过期'}, status=status.HTTP_400_BAD_REQUEST)
 
-    user, created = User.objects.get_or_create(
-      phone=phone,
-      defaults={'username': phone},
-    )
-    return _login_response(user, is_new_user=created)
+    try:
+      user = User.objects.get(phone=phone)
+    except User.DoesNotExist:
+      return Response({'detail': '手机号尚未注册'}, status=status.HTTP_400_BAD_REQUEST)
+
+    return _login_response(user)
 
 
 class PasswordLoginView(APIView):
@@ -134,7 +135,7 @@ class PasswordLoginView(APIView):
     try:
       user = User.objects.get(phone=phone)
     except User.DoesNotExist:
-      return Response({'detail': '手机号或密码错误'}, status=status.HTTP_400_BAD_REQUEST)
+      return Response({'detail': '手机号尚未注册'}, status=status.HTTP_400_BAD_REQUEST)
 
     if not user.has_usable_password() or not user.check_password(password):
       return Response({'detail': '手机号或密码错误'}, status=status.HTTP_400_BAD_REQUEST)

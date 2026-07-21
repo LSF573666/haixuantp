@@ -131,3 +131,39 @@ class PasswordAuthTests(APITestCase):
     )
     self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
     self.assertEqual(response.data['detail'], '手机号或密码错误')
+
+  def test_password_login_unregistered_phone(self):
+    response = self.client.post(
+      self.password_login_url,
+      {'phone': '13900139999', 'password': 'TestPass123'},
+    )
+    self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    self.assertEqual(response.data['detail'], '手机号尚未注册')
+
+
+@override_settings(MIDDLEWARE=TEST_MIDDLEWARE, SMS_DEV_MODE=True, SMS_DEV_CODE='123456')
+class PhoneLoginTests(APITestCase):
+  def setUp(self):
+    self.send_sms_url = reverse('send-sms')
+    self.login_url = reverse('phone-login')
+    self.user = User.objects.create_user(username='13800138001', phone='13800138001')
+
+  def test_phone_login_success(self):
+    self.client.post(self.send_sms_url, {'phone': '13800138001'})
+    response = self.client.post(
+      self.login_url,
+      {'phone': '13800138001', 'code': '123456'},
+    )
+    self.assertEqual(response.status_code, status.HTTP_200_OK)
+    self.assertIn('access', response.data)
+    self.assertFalse(response.data['is_new_user'])
+
+  def test_phone_login_unregistered(self):
+    self.client.post(self.send_sms_url, {'phone': '13900139998'})
+    response = self.client.post(
+      self.login_url,
+      {'phone': '13900139998', 'code': '123456'},
+    )
+    self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    self.assertEqual(response.data['detail'], '手机号尚未注册')
+    self.assertFalse(User.objects.filter(phone='13900139998').exists())
