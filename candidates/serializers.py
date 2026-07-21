@@ -141,16 +141,35 @@ class CandidateApplicationSubmitSerializer(serializers.Serializer):
     default='',
     help_text='OSS 直传后的头像 URL',
   )
+  photos = serializers.ListField(
+    child=serializers.CharField(allow_blank=False),
+    required=False,
+    default=list,
+    max_length=9,
+    help_text='OSS 直传后的展示照片 URL 列表，最多 9 张',
+  )
 
   def to_internal_value(self, data):
     if hasattr(data, 'copy'):
       data = data.copy()
-      members = data.get('members')
-      if isinstance(members, str) and members.strip():
-        try:
-          data['members'] = json.loads(members)
-        except json.JSONDecodeError as exc:
-          raise serializers.ValidationError({'members': '成员信息 JSON 格式无效'}) from exc
+    # QueryDict 不能直接赋 list/dict，需转为普通 dict
+    if hasattr(data, 'lists'):
+      data = {key: data.get(key) for key in data.keys()}
+
+    members = data.get('members')
+    if isinstance(members, str) and members.strip():
+      try:
+        data['members'] = json.loads(members)
+      except json.JSONDecodeError as exc:
+        raise serializers.ValidationError({'members': '成员信息 JSON 格式无效'}) from exc
+
+    photos = data.get('photos')
+    if isinstance(photos, str) and photos.strip():
+      try:
+        data['photos'] = json.loads(photos)
+      except json.JSONDecodeError as exc:
+        raise serializers.ValidationError({'photos': '照片 URL 列表 JSON 格式无效'}) from exc
+
     return super().to_internal_value(data)
 
   def validate(self, attrs):

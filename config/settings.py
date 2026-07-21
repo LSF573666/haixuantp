@@ -8,9 +8,49 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
+SECRET_KEY = os.getenv(
+    'DJANGO_SECRET_KEY',
+    os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production'),
+)
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')]
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.getenv(
+        'DJANGO_ALLOWED_HOSTS',
+        os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1'),
+    ).split(',')
+    if h.strip()
+]
+PUBLIC_BASE_URL = os.getenv(
+    'DJANGO_PUBLIC_BASE_URL',
+    os.getenv('PUBLIC_BASE_URL', ''),
+).rstrip('/')
+
+# 反向代理（Traefik）终止 HTTPS 后转发到容器
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
+# Django 4+：HTTPS 站点后台登录必须配置，否则浏览器 POST 会 CSRF 403
+_csrf_origins = [
+    o.strip().rstrip('/')
+    for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if o.strip()
+]
+if not _csrf_origins:
+    if PUBLIC_BASE_URL:
+        _csrf_origins.append(PUBLIC_BASE_URL)
+    for host in ALLOWED_HOSTS:
+        if host and host not in ('*', 'localhost', '127.0.0.1') and not host.replace('.', '').isdigit():
+            _csrf_origins.append(f'https://{host}')
+            _csrf_origins.append(f'http://{host}')
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(_csrf_origins))
+
+# HTTPS 站点 Cookie（避免浏览器丢弃会话导致“登不进去”）
+if PUBLIC_BASE_URL.startswith('https://') or not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -35,6 +75,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -66,12 +107,18 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'voting_db'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+        'ENGINE': os.getenv(
+            'DJANGO_DB_ENGINE',
+            os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
+        ),
+        'NAME': os.getenv('DJANGO_DB_NAME', os.getenv('DB_NAME', 'voting_db')),
+        'USER': os.getenv('DJANGO_DB_USER', os.getenv('DB_USER', 'postgres')),
+        'PASSWORD': os.getenv(
+            'DJANGO_DB_PASSWORD',
+            os.getenv('DB_PASSWORD', 'postgres'),
+        ),
+        'HOST': os.getenv('DJANGO_DB_HOST', os.getenv('DB_HOST', 'localhost')),
+        'PORT': os.getenv('DJANGO_DB_PORT', os.getenv('DB_PORT', '5432')),
     }
 }
 
@@ -106,16 +153,20 @@ OSS_REGION = os.getenv('OSS_REGION', os.getenv('ALIYUN_SMS_REGION', 'cn-hangzhou
 OSS_STS_DURATION_SECONDS = int(os.getenv('OSS_STS_DURATION_SECONDS', '3600'))
 
 _USE_OSS = bool(OSS_ACCESS_KEY_ID and OSS_ACCESS_KEY_SECRET and ALIYUN_OSS_BUCKET)
-if _USE_OSS:
-  STORAGES = {
+STORAGES = {
     'default': {
-      'BACKEND': 'core.storage.AliyunOSSStorage',
+        'BACKEND': (
+            'core.storage.AliyunOSSStorage'
+            if _USE_OSS
+            else 'django.core.files.storage.FileSystemStorage'
+        ),
     },
     'staticfiles': {
-      'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
     },
-  }
-  MEDIA_URL = os.getenv('MEDIA_URL', f'https://{ALIYUN_OSS_BUCKET}.{OSS_ENDPOINT}/')
+}
+if _USE_OSS:
+    MEDIA_URL = os.getenv('MEDIA_URL', f'https://{ALIYUN_OSS_BUCKET}.{OSS_ENDPOINT}/')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

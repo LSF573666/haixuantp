@@ -17,7 +17,7 @@
 Authorization: Bearer <access_token>
 ```
 
-JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（OSS 直传后传 `avatar_url`）或 `multipart/form-data`（文件上传）。
+JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（OSS 直传后传 `avatar_url` / `photos` URL 列表）或 `multipart/form-data`（头像可文件上传，`photos` 传 URL 的 JSON 字符串）。
 
 ### 统一错误响应
 
@@ -436,7 +436,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `introduction` | string | 否 | 个人/团体介绍 |
 | `avatar` | file | 首次二选一 | 头像文件上传（与 `avatar_url` 二选一） |
 | `avatar_url` | string | 首次二选一 | OSS 直传后的头像完整 URL，须在当前用户目录 `uploads/{user_id}/` 下 |
-| `photos` | file[] | 否 | 展示照片，最多 9 张；重新提交可不传，保留上次照片 |
+| `photos` | string[] | 否 | OSS 直传后的展示照片 URL 列表，最多 9 张；须在当前用户目录 `uploads/{user_id}/` 下；重新提交可不传，保留上次照片；multipart 时可传 JSON 字符串 |
 
 **个人报名 JSON 示例:**
 
@@ -447,7 +447,11 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
   "gender": "male",
   "age": 22,
   "introduction": "热爱舞台，期待展示自我",
-  "avatar_url": "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jpg"
+  "avatar_url": "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jpg",
+  "photos": [
+    "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/photo1.jpg",
+    "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/photo2.jpg"
+  ]
 }
 ```
 
@@ -463,7 +467,10 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
     {"name": "丙", "age": 22}
   ],
   "introduction": "三人街舞组合",
-  "avatar_url": "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/group.jpg"
+  "avatar_url": "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/group.jpg",
+  "photos": [
+    "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/g1.jpg"
+  ]
 }
 ```
 
@@ -476,6 +483,7 @@ gender=male
 age=22
 introduction=热爱舞台
 avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jpg
+photos=["https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/photo1.jpg"]
 ```
 
 **团体报名 multipart 示例（`members` 传 JSON 字符串）:**

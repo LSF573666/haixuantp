@@ -238,6 +238,7 @@ class CandidateApplicationSubmitView(APIView):
       '支持个人报名（individual）与团体报名（group）。'
       '个人报名须填写姓名、性别、年龄；团体报名须填写团体名称，以及至少 3 名成员的姓名和年龄。'
       '头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS 直传后的 URL。'
+      '展示照片通过 `photos` 传 OSS 直传后的 URL 列表（最多 9 张）。'
       '被驳回后可修改资料后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。'
       '头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人。'
     ),
@@ -272,8 +273,9 @@ class CandidateApplicationSubmitView(APIView):
           'avatar_url': {'type': 'string', 'description': 'OSS 直传后的头像 URL'},
           'photos': {
             'type': 'array',
-            'items': {'type': 'string', 'format': 'binary'},
-            'description': '展示照片（可多张）',
+            'items': {'type': 'string'},
+            'maxItems': 9,
+            'description': 'OSS 直传后的展示照片 URL 列表；multipart 时可传 JSON 字符串',
           },
         },
         'required': ['registration_type', 'name'],
@@ -301,6 +303,12 @@ class CandidateApplicationSubmitView(APIView):
           'members': MEMBER_SCHEMA,
           'introduction': {'type': 'string', 'description': '个人/团体介绍'},
           'avatar_url': {'type': 'string', 'description': 'OSS 直传后的头像 URL'},
+          'photos': {
+            'type': 'array',
+            'items': {'type': 'string'},
+            'maxItems': 9,
+            'description': 'OSS 直传后的展示照片 URL 列表，最多 9 张',
+          },
         },
         'required': ['registration_type', 'name', 'avatar_url'],
       },
@@ -319,12 +327,10 @@ class CandidateApplicationSubmitView(APIView):
       )
       serializer.is_valid(raise_exception=True)
 
-    photos = request.FILES.getlist('photos')
     try:
       application = submit_application(
         user=request.user,
         validated_data=serializer.validated_data,
-        photos=photos,
       )
     except ValueError as exc:
       logger.warning(

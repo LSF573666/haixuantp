@@ -1,0 +1,39 @@
+services:
+  web:
+    build: .
+    container_name: haixuantp-web
+    restart: unless-stopped
+    ports:
+      # 本机调试端口（云安全组若未放行，外网仍打不通）
+      - "${APP_PORT:-8006}:8000"
+    env_file:
+      - .env
+    environment:
+      - PORT=8000
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-3}
+      - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-120}
+    volumes:
+      - ./secrets:/app/secrets:ro
+      - ./media:/app/media
+    networks:
+      - default
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-net"
+      - "traefik.http.routers.haixuantp.rule=Host(`tpapi.aibaoben.com`)"
+      - "traefik.http.routers.haixuantp.entrypoints=websecure"
+      - "traefik.http.routers.haixuantp.tls.certresolver=myresolver"
+      - "traefik.http.routers.haixuantp.middlewares=global-compress"
+      - "traefik.http.services.haixuantp.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/docs/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+networks:
+  traefik-net:
+    external: true
+    name: traefik-net

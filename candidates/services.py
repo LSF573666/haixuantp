@@ -44,11 +44,11 @@ def build_candidate_rank_map(queryset=None):
   return rank_map
 
 
-def resolve_avatar_object_key(avatar_url: str, user_id: int) -> str:
-  """校验 OSS 头像 URL，并返回可写入 ImageField 的对象 Key。"""
-  url = avatar_url.strip()
+def resolve_oss_object_key(file_url: str, user_id: int, label: str = '文件') -> str:
+  """校验 OSS URL，并返回可写入 ImageField 的对象 Key。"""
+  url = file_url.strip()
   if not url:
-    raise ValueError('头像 URL 不能为空')
+    raise ValueError(f'{label} URL 不能为空')
 
   bucket = settings.ALIYUN_OSS_BUCKET
   endpoint = settings.OSS_ENDPOINT
@@ -61,16 +61,21 @@ def resolve_avatar_object_key(avatar_url: str, user_id: int) -> str:
   parsed = urlparse(url)
   if parsed.netloc:
     if parsed.netloc not in allowed_hosts:
-      raise ValueError('头像 URL 不属于当前 OSS 存储')
+      raise ValueError(f'{label} URL 不属于当前 OSS 存储')
     object_key = parsed.path.lstrip('/')
   else:
     object_key = url.lstrip('/')
 
   required_prefix = f'uploads/{user_id}/'
   if not object_key.startswith(required_prefix):
-    raise ValueError('头像 URL 不在允许的上传目录内')
+    raise ValueError(f'{label} URL 不在允许的上传目录内')
 
   return object_key
+
+
+def resolve_avatar_object_key(avatar_url: str, user_id: int) -> str:
+  """校验 OSS 头像 URL，并返回可写入 ImageField 的对象 Key。"""
+  return resolve_oss_object_key(avatar_url, user_id, label='头像')
 
 
 def _resolve_avatar(validated_data, user_id):
@@ -88,6 +93,17 @@ def _apply_avatar(application, avatar_file=None, avatar_object_key=None):
     application.avatar = avatar_file
   elif avatar_object_key:
     application.avatar.name = avatar_object_key
+
+
+def _replace_application_photos(application, photo_object_keys):
+  application.photos.all().delete()
+  for index, object_key in enumerate(photo_object_keys):
+    photo = CandidateApplicationPhoto(
+      application=application,
+      sort_order=index,
+    )
+    photo.image.name = object_key
+    photo.save()
 
 
 def _replace_application_members(application, members):
@@ -117,9 +133,13 @@ MAX_APPLICATION_PHOTOS = 9
 
 def submit_application(user, validated_data, photos=None):
   """提交报名或修改个人资料。驳回后、已成为候选人后均可重新提交，每次提交均需后台审核。"""
-  photos = list(photos or [])
-  if len(photos) > MAX_APPLICATION_PHOTOS:
+  photo_urls = list(photos if photos is not None else validated_data.get('photos') or [])
+  if len(photo_urls) > MAX_APPLICATION_PHOTOS:
     raise ValueError(f'展示照片最多上传 {MAX_APPLICATION_PHOTOS} 张')
+  photo_object_keys = [
+    resolve_oss_object_key(url, user.id, label='照片')
+    for url in photo_urls
+  ]
 
   existing = CandidateApplication.objects.filter(user=user).first()
 
@@ -154,14 +174,8 @@ def submit_application(user, validated_data, photos=None):
       elif registration_type == RegistrationType.INDIVIDUAL:
         application.members.all().delete()
 
-      if photos:
-        application.photos.all().delete()
-        for index, photo in enumerate(photos):
-          CandidateApplicationPhoto.objects.create(
-            application=application,
-            image=photo,
-            sort_order=index,
-          )
+      if photo_object_keys:
+        _replace_application_photos(application, photo_object_keys)
     else:
       if not avatar_file and not avatar_object_key:
         raise ValueError('请上传头像')
@@ -176,12 +190,8 @@ def submit_application(user, validated_data, photos=None):
       _apply_avatar(application, avatar_file, avatar_object_key)
       application.save()
       _replace_application_members(application, members)
-      for index, photo in enumerate(photos):
-        CandidateApplicationPhoto.objects.create(
-          application=application,
-          image=photo,
-          sort_order=index,
-        )
+      if photo_object_keys:
+        _replace_application_photos(application, photo_object_keys)
 
   return application
 

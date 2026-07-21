@@ -1,5 +1,6 @@
 # 本地环境与 IDE
 venv/
+.venv/
 .vscode/
 
 # 密钥与本地配置（勿提交）
@@ -12,5 +13,9 @@ __pycache__/
 *.py[cod]
 *.sqlite3
 
-# 用户上传文件
+# 构建产物
+staticfiles/
 media/
+
+# Docker
+*.log
