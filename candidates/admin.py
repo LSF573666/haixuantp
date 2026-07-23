@@ -138,7 +138,9 @@ class CandidateApplicationPhotoInline(admin.TabularInline):
   def image_preview(self, obj):
     if obj.image:
       return format_html(
-        '<img src="{}" style="max-height:80px;max-width:120px;" />',
+        '<img src="{0}" class="js-admin-img-zoom" data-full-src="{0}" '
+        'style="max-height:80px;max-width:120px;cursor:zoom-in;" '
+        'title="点击放大查看" alt="照片" />',
         obj.image.url,
       )
     return '-'
@@ -184,7 +186,9 @@ class CandidateApplicationAdmin(admin.ModelAdmin):
   def avatar_preview(self, obj):
     if obj.avatar:
       return format_html(
-        '<img src="{}" style="max-height:120px;max-width:120px;border-radius:8px;" />',
+        '<img src="{0}" class="js-admin-img-zoom" data-full-src="{0}" '
+        'style="max-height:120px;max-width:120px;border-radius:8px;cursor:zoom-in;" '
+        'title="点击放大查看" alt="头像" />',
         obj.avatar.url,
       )
     return '-'

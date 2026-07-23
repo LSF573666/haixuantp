@@ -1,5 +1,50 @@
 {% extends "admin/change_form.html" %}
 
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .admin-img-lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.85);
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+  .admin-img-lightbox.is-open {
+    display: flex;
+  }
+  .admin-img-lightbox img {
+    max-width: min(96vw, 1200px);
+    max-height: 92vh;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    cursor: default;
+  }
+  .admin-img-lightbox__close {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    color: #fff;
+    font-size: 32px;
+    line-height: 1;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    padding: 4px 10px;
+    opacity: 0.85;
+  }
+  .admin-img-lightbox__close:hover {
+    opacity: 1;
+  }
+</style>
+{% endblock %}
+
 {% block submit_buttons_bottom %}
 {{ block.super }}
 {% if approve_url or reject_url %}
@@ -17,4 +62,53 @@
   手动审核：通过后将创建候选人；驳回后用户可修改资料重新提交。
 </p>
 {% endif %}
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
+<script>
+(function () {
+  var overlay = document.createElement('div');
+  overlay.className = 'admin-img-lightbox';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.innerHTML =
+    '<button type="button" class="admin-img-lightbox__close" aria-label="关闭">&times;</button>' +
+    '<img alt="预览" />';
+  document.body.appendChild(overlay);
+
+  var previewImg = overlay.querySelector('img');
+  var closeBtn = overlay.querySelector('.admin-img-lightbox__close');
+
+  function openLightbox(src) {
+    previewImg.src = src;
+    overlay.classList.add('is-open');
+  }
+
+  function closeLightbox() {
+    overlay.classList.remove('is-open');
+    previewImg.removeAttribute('src');
+  }
+
+  document.addEventListener('click', function (event) {
+    var target = event.target;
+    if (target && target.classList && target.classList.contains('js-admin-img-zoom')) {
+      event.preventDefault();
+      openLightbox(target.getAttribute('data-full-src') || target.src);
+    }
+  });
+
+  overlay.addEventListener('click', function (event) {
+    if (event.target === overlay || event.target === closeBtn) {
+      closeLightbox();
+    }
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && overlay.classList.contains('is-open')) {
+      closeLightbox();
+    }
+  });
+})();
+</script>
 {% endblock %}
