@@ -45,7 +45,7 @@ def build_candidate_rank_map(queryset=None):
 
 
 def resolve_oss_object_key(file_url: str, user_id: int, label: str = '文件') -> str:
-  """校验 OSS URL，并返回可写入 ImageField 的对象 Key。"""
+  """校验 OSS/CDN URL，并返回可写入 ImageField 的对象 Key。"""
   url = file_url.strip()
   if not url:
     raise ValueError(f'{label} URL 不能为空')
@@ -54,8 +54,13 @@ def resolve_oss_object_key(file_url: str, user_id: int, label: str = '文件') -
   endpoint = settings.OSS_ENDPOINT
   base_url = (settings.OSS_BASE_URL or f'https://{bucket}.{endpoint}').rstrip('/')
   allowed_hosts = {
-    urlparse(base_url).netloc,
-    f'{bucket}.{endpoint}',
+    host
+    for host in (
+      urlparse(base_url).netloc,
+      f'{bucket}.{endpoint}' if bucket and endpoint else '',
+      urlparse((settings.MEDIA_URL or '').rstrip('/') + '/').netloc,
+    )
+    if host
   }
 
   parsed = urlparse(url)

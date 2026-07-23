@@ -27,6 +27,7 @@ User = get_user_model()
   ALIYUN_OSS_BUCKET='aibaobendev',
   OSS_ENDPOINT='oss-cn-hangzhou.aliyuncs.com',
   OSS_BASE_URL='',
+  MEDIA_URL='https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/',
 )
 class ResolveAvatarObjectKeyTests(TestCase):
   def test_full_url(self):
@@ -49,6 +50,14 @@ class ResolveAvatarObjectKeyTests(TestCase):
         'https://other-bucket.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jpg',
         12,
       )
+
+  @override_settings(OSS_BASE_URL='https://toupiao.aibaoben.com')
+  def test_accept_cdn_base_url(self):
+    key = resolve_avatar_object_key(
+      'https://toupiao.aibaoben.com/uploads/12/avatar.jpg',
+      12,
+    )
+    self.assertEqual(key, 'uploads/12/avatar.jpg')
 
 
 class ApproveApplicationTests(TestCase):

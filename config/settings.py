@@ -4,9 +4,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+# 项目 .env 优先于系统/IDE 残留的 DJANGO_DB_*，避免连错库
+load_dotenv(BASE_DIR / '.env', override=True)
 
 SECRET_KEY = os.getenv(
     'DJANGO_SECRET_KEY',
@@ -166,7 +166,10 @@ STORAGES = {
     },
 }
 if _USE_OSS:
-    MEDIA_URL = os.getenv('MEDIA_URL', f'https://{ALIYUN_OSS_BUCKET}.{OSS_ENDPOINT}/')
+    MEDIA_URL = os.getenv(
+        'MEDIA_URL',
+        f'{(OSS_BASE_URL or f"https://{ALIYUN_OSS_BUCKET}.{OSS_ENDPOINT}").rstrip("/")}/',
+    )
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
