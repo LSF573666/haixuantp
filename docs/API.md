@@ -312,6 +312,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `gender` | string\|null | 性别：`male`=男，`female`=女；团体可为空 |
 | `gender_display` | string | 性别中文展示：男 / 女 |
 | `age` | integer\|null | 年龄；团体可为空 |
+| `height` | integer\|null | 身高(cm)；团体可为空 |
+| `weight` | string\|null | 体重(kg)，一位小数；团体可为空 |
+| `work_url` | string | 作品链接 |
 | `members` | array | 团体成员列表（`name`、`age`）；个人报名为空数组 |
 | `vote_count` | integer | 投票数 |
 | `heat_score` | integer | 热度值（投票 + 礼物转换） |
@@ -353,6 +356,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
       "gender": "male",
       "gender_display": "男",
       "age": 22,
+      "height": 178,
+      "weight": "65.5",
+      "work_url": "https://example.com/works/zhangsan",
       "introduction": "热爱舞台",
       "avatar": "/media/candidates/avatars/xxx.jpg",
       "members": [],
@@ -378,6 +384,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
   "gender": "female",
   "gender_display": "女",
   "age": 20,
+  "height": 165,
+  "weight": "48.0",
+  "work_url": "https://example.com/works/lisi",
   "introduction": "热爱舞台",
   "avatar": "/media/candidates/avatars/xxx.jpg",
   "vote_count": 80,
@@ -432,6 +441,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `name` | string | 是 | 个人姓名，或团体名称 |
 | `gender` | string | 个人必填 | 性别：`male`=男，`female`=女；团体报名可不传 |
 | `age` | integer | 个人必填 | 年龄，范围 1–120；团体报名可不传 |
+| `height` | integer | 个人必填 | 身高(cm)，范围 50–250；团体报名可不传 |
+| `weight` | number | 个人必填 | 体重(kg)，范围 20–300，支持一位小数；团体报名可不传 |
+| `work_url` | string | 是 | 作品链接（完整 URL，如视频/主页等） |
 | `members` | array | 团体必填 | 团体成员列表，每人含 `name`、`age`，**至少 3 人**；前端可按实际人数继续添加；个人报名勿传 |
 | `introduction` | string | 否 | 个人/团体介绍 |
 | `avatar` | file | 首次二选一 | 头像文件上传（与 `avatar_url` 二选一） |
@@ -446,6 +458,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
   "name": "张三",
   "gender": "male",
   "age": 22,
+  "height": 178,
+  "weight": 65.5,
+  "work_url": "https://example.com/works/zhangsan",
   "introduction": "热爱舞台，期待展示自我",
   "avatar_url": "https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jpg",
   "photos": [
@@ -461,6 +476,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 {
   "registration_type": "group",
   "name": "青春舞团",
+  "work_url": "https://example.com/works/youth-dance",
   "members": [
     {"name": "甲", "age": 20},
     {"name": "乙", "age": 21},
@@ -481,6 +497,9 @@ registration_type=individual
 name=张三
 gender=male
 age=22
+height=178
+weight=65.5
+work_url=https://example.com/works/zhangsan
 introduction=热爱舞台
 avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/avatar.jpg
 photos=["https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/photo1.jpg"]
@@ -491,6 +510,7 @@ photos=["https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/photo1.jpg"
 ```
 registration_type=group
 name=青春舞团
+work_url=https://example.com/works/youth-dance
 members=[{"name":"甲","age":20},{"name":"乙","age":21},{"name":"丙","age":22}]
 introduction=三人街舞组合
 avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/group.jpg
@@ -507,6 +527,9 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/group.jpg
   "gender": "male",
   "gender_display": "男",
   "age": 22,
+  "height": 178,
+  "weight": "65.5",
+  "work_url": "https://example.com/works/zhangsan",
   "introduction": "热爱舞台，期待展示自我",
   "avatar": "/media/applications/avatars/xxx.jpg",
   "photos": [
@@ -532,7 +555,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/group.jpg
 **业务规则:**
 
 - 每位用户同时只能有一条待审核申请
-- 个人报名须填写姓名、性别、年龄；团体报名须填写团体名称，以及至少 3 名成员的姓名和年龄
+- 个人报名须填写姓名、性别、年龄、身高、体重和作品链接；团体报名须填写团体名称、作品链接，以及至少 3 名成员的姓名和年龄
 - 用户可随时修改资料，每次提交后均需后台重新审核
 - 首次审核通过后自动创建候选人（团体创建 1 个候选人并同步成员列表）；后续资料修改审核通过后更新已有候选人信息
 - 审核期间及驳回后，候选人列表仍展示上次已通过的资料
@@ -545,6 +568,9 @@ registration_type=individual
 name=李四
 gender=female
 age=23
+height=165
+weight=48.0
+work_url=https://example.com/works/lisi
 introduction=更新后的个人介绍
 ```
 
@@ -555,6 +581,9 @@ registration_type=individual
 name=李四
 gender=female
 age=23
+height=165
+weight=48.0
+work_url=https://example.com/works/lisi
 introduction=更新后的个人介绍
 avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avatar.jpg
 ```
@@ -591,6 +620,9 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
     "gender": "male",
     "gender_display": "男",
     "age": 22,
+    "height": 178,
+    "weight": "65.5",
+    "work_url": "https://example.com/works/zhangsan",
     "introduction": "热爱舞台，期待展示自我",
     "avatar": "/media/applications/avatars/xxx.jpg",
     "photos": [],
@@ -607,7 +639,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
 }
 ```
 
-**审核通过时** `status` 为 `approved`，`is_candidate` 为 `true`，`can_apply` 和 `can_resubmit` 为 `true`，个人报名 `resubmit_hint` 为 `"可修改姓名、性别、年龄、介绍、头像或照片，提交后需后台重新审核"`，团体报名对应为修改团体名称与成员信息，`candidate_id` 返回关联的候选人 ID，该候选人会出现在 `/api/candidates/` 列表和排行榜中。
+**审核通过时** `status` 为 `approved`，`is_candidate` 为 `true`，`can_apply` 和 `can_resubmit` 为 `true`，个人报名 `resubmit_hint` 为 `"可修改姓名、性别、年龄、身高、体重、作品链接、介绍、头像或照片，提交后需后台重新审核"`，团体报名对应为修改团体名称、成员信息与作品链接，`candidate_id` 返回关联的候选人 ID，该候选人会出现在 `/api/candidates/` 列表和排行榜中。
 
 **审核驳回时** `status` 为 `rejected`，`can_apply` 和 `can_resubmit` 为 `true`。若用户此前已是候选人，`is_candidate` 仍为 `true`，候选人列表继续展示上次已通过的资料。`resubmit_hint` 会提示修改对应类型的资料，`status_message` 包含驳回原因。
 
@@ -619,7 +651,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
   "can_apply": true,
   "can_resubmit": true,
   "is_candidate": false,
-  "resubmit_hint": "资料被驳回，请修改姓名、性别、年龄、介绍或照片后重新提交",
+  "resubmit_hint": "资料被驳回，请修改姓名、性别、年龄、身高、体重、作品链接、介绍或照片后重新提交",
   "application": {
     "status": "rejected",
     "status_display": "已驳回",
@@ -638,7 +670,7 @@ avatar_url=https://aibaobendev.oss-cn-hangzhou.aliyuncs.com/uploads/12/new_avata
   "can_apply": true,
   "can_resubmit": true,
   "is_candidate": true,
-  "resubmit_hint": "可修改姓名、性别、年龄、介绍、头像或照片，提交后需后台重新审核",
+  "resubmit_hint": "可修改姓名、性别、年龄、身高、体重、作品链接、介绍、头像或照片，提交后需后台重新审核",
   "application": {
     "status": "approved",
     "status_display": "已通过",

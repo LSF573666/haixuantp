@@ -314,8 +314,9 @@ paths:
   /api/candidates/applications/submit/:
     post:
       operationId: candidates_applications_submit_create
-      description: 支持个人报名（individual）与团体报名（group）。个人报名须填写姓名、性别、年龄；团体报名须填写团体名称，以及至少
-        3 名成员的姓名和年龄。头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS 直传后的 URL。展示照片通过 `photos` 传 OSS 直传后的 URL 列表（最多 9 张）。被驳回后可修改资料后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人。
+      description: 支持个人报名（individual）与团体报名（group）。个人报名须填写姓名、性别、年龄、身高、体重和作品链接；团体报名须填写团体名称、作品链接，以及至少
+        3 名成员的姓名和年龄。头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS 直传后的 URL。展示照片通过 `photos`
+        传 OSS 直传后的 URL 列表（最多 9 张）。被驳回后可修改资料后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人。
       summary: 提交报名申请
       tags:
       - 报名
@@ -345,6 +346,20 @@ paths:
                   minimum: 1
                   maximum: 120
                   description: 年龄（个人报名必填）
+                height:
+                  type: integer
+                  minimum: 50
+                  maximum: 250
+                  description: 身高 cm（个人报名必填）
+                weight:
+                  type: number
+                  minimum: 20
+                  maximum: 300
+                  description: 体重 kg（个人报名必填）
+                work_url:
+                  type: string
+                  format: uri
+                  description: 作品链接（必填）
                 members:
                   type: array
                   items:
@@ -381,6 +396,7 @@ paths:
               required:
               - registration_type
               - name
+              - work_url
           application/json:
             schema:
               type: object
@@ -405,6 +421,20 @@ paths:
                   minimum: 1
                   maximum: 120
                   description: 年龄（个人报名必填）
+                height:
+                  type: integer
+                  minimum: 50
+                  maximum: 250
+                  description: 身高 cm（个人报名必填）
+                weight:
+                  type: number
+                  minimum: 20
+                  maximum: 300
+                  description: 体重 kg（个人报名必填）
+                work_url:
+                  type: string
+                  format: uri
+                  description: 作品链接（必填）
                 members:
                   type: array
                   items:
@@ -437,6 +467,7 @@ paths:
               required:
               - registration_type
               - name
+              - work_url
               - avatar_url
       security:
       - jwtAuth: []
@@ -784,6 +815,37 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/CreateRechargeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/payments/recharge/jsapi/:
+    post:
+      operationId: payments_recharge_jsapi_create
+      description: '强制使用微信 JSAPI 支付，返回 `pay_data.jsapi_params` 供微信内调起。
+
+        请求需传 `openid`；未传时尝试使用用户已绑定的微信收款账号。'
+      summary: 创建微信 JSAPI 充值订单
+      tags:
+      - 钱包
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeJsapiRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeJsapiRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeJsapiRequest'
         required: true
       security:
       - jwtAuth: []
@@ -1233,8 +1295,9 @@ paths:
   /candidates/applications/submit/:
     post:
       operationId: candidates_applications_submit_create_2
-      description: 支持个人报名（individual）与团体报名（group）。个人报名须填写姓名、性别、年龄；团体报名须填写团体名称，以及至少
-        3 名成员的姓名和年龄。头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS 直传后的 URL。展示照片通过 `photos` 传 OSS 直传后的 URL 列表（最多 9 张）。被驳回后可修改资料后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人。
+      description: 支持个人报名（individual）与团体报名（group）。个人报名须填写姓名、性别、年龄、身高、体重和作品链接；团体报名须填写团体名称、作品链接，以及至少
+        3 名成员的姓名和年龄。头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS 直传后的 URL。展示照片通过 `photos`
+        传 OSS 直传后的 URL 列表（最多 9 张）。被驳回后可修改资料后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。头像和照片可不传，将保留上次内容。审核通过后自动创建或更新候选人。
       summary: 提交报名申请
       tags:
       - 报名
@@ -1264,6 +1327,20 @@ paths:
                   minimum: 1
                   maximum: 120
                   description: 年龄（个人报名必填）
+                height:
+                  type: integer
+                  minimum: 50
+                  maximum: 250
+                  description: 身高 cm（个人报名必填）
+                weight:
+                  type: number
+                  minimum: 20
+                  maximum: 300
+                  description: 体重 kg（个人报名必填）
+                work_url:
+                  type: string
+                  format: uri
+                  description: 作品链接（必填）
                 members:
                   type: array
                   items:
@@ -1300,6 +1377,7 @@ paths:
               required:
               - registration_type
               - name
+              - work_url
           application/json:
             schema:
               type: object
@@ -1324,6 +1402,20 @@ paths:
                   minimum: 1
                   maximum: 120
                   description: 年龄（个人报名必填）
+                height:
+                  type: integer
+                  minimum: 50
+                  maximum: 250
+                  description: 身高 cm（个人报名必填）
+                weight:
+                  type: number
+                  minimum: 20
+                  maximum: 300
+                  description: 体重 kg（个人报名必填）
+                work_url:
+                  type: string
+                  format: uri
+                  description: 作品链接（必填）
                 members:
                   type: array
                   items:
@@ -1356,6 +1448,7 @@ paths:
               required:
               - registration_type
               - name
+              - work_url
               - avatar_url
       security:
       - jwtAuth: []
@@ -1714,6 +1807,37 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /payments/recharge/jsapi/:
+    post:
+      operationId: payments_recharge_jsapi_create_2
+      description: '强制使用微信 JSAPI 支付，返回 `pay_data.jsapi_params` 供微信内调起。
+
+        请求需传 `openid`；未传时尝试使用用户已绑定的微信收款账号。'
+      summary: 创建微信 JSAPI 充值订单
+      tags:
+      - 钱包
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeJsapiRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeJsapiRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateRechargeJsapiRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /payments/wallet/:
     get:
       operationId: payments_wallet_retrieve_2
@@ -1913,6 +2037,29 @@ components:
           nullable: true
           title: 年龄
           description: 个人报名填写；团体报名可为空
+        height:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+          title: 身高(cm)
+          description: 个人报名填写；团体报名可为空
+        weight:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
+          nullable: true
+          title: 体重(kg)
+          description: 个人报名填写；团体报名可为空
+        work_url:
+          title: 作品链接
+          description: 作品展示链接，如视频/主页等
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
         introduction:
           type: string
           title: 个人介绍
@@ -2102,6 +2249,29 @@ components:
           nullable: true
           title: 年龄
           description: 个人报名填写；团体报名可为空
+        height:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+          title: 身高(cm)
+          description: 个人报名填写；团体报名可为空
+        weight:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
+          nullable: true
+          title: 体重(kg)
+          description: 个人报名填写；团体报名可为空
+        work_url:
+          title: 作品链接
+          description: 作品展示链接，如视频/主页等
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
         introduction:
           type: string
           title: 个人介绍
@@ -2212,6 +2382,29 @@ components:
           nullable: true
           title: 年龄
           description: 个人报名填写；团体报名可为空
+        height:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+          title: 身高(cm)
+          description: 个人报名填写；团体报名可为空
+        weight:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
+          nullable: true
+          title: 体重(kg)
+          description: 个人报名填写；团体报名可为空
+        work_url:
+          title: 作品链接
+          description: 作品展示链接，如视频/主页等
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
         introduction:
           type: string
           title: 个人介绍
@@ -2392,6 +2585,34 @@ components:
       description: '* `wechat` - 微信
 
         * `alipay` - 支付宝'
+    CreateRechargeJsapiPaymentMethodEnum:
+      enum:
+      - wechat
+      type: string
+      description: '* `wechat` - 微信支付'
+    CreateRechargeJsapiRequest:
+      type: object
+      description: 专用 JSAPI 充值：强制微信 JSAPI，openid 可由请求传入。
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          description: 充值金额（元）
+        openid:
+          type: string
+          description: 微信用户 openid（与商户 AppID 对应）；未传时尝试使用已绑定的微信收款账号
+          maxLength: 128
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/CreateRechargeJsapiPaymentMethodEnum'
+          default: wechat
+          description: '固定为 wechat
+
+
+            * `wechat` - 微信支付'
+      required:
+      - amount
     CreateRechargeRequest:
       type: object
       properties:
@@ -2864,6 +3085,9 @@ components:
           - $ref: '#/components/schemas/PaymentOrderStatusEnum'
           readOnly: true
           title: 状态
+        status_display:
+          type: string
+          readOnly: true
         extra_data:
           readOnly: true
           title: 附加数据
@@ -2887,6 +3111,7 @@ components:
       - paid_at
       - payment_method
       - status
+      - status_display
     PaymentOrderPaymentMethodEnum:
       enum:
       - wechat
@@ -2906,7 +3131,7 @@ components:
       - cancelled
       - refunded
       type: string
-      description: '* `pending` - 待支付
+      description: '* `pending` - 处理中
 
         * `paid` - 已支付
 

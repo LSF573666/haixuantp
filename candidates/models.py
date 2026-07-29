@@ -43,6 +43,27 @@ class Candidate(models.Model):
     null=True,
     help_text='个人报名填写；团体报名可为空',
   )
+  height = models.PositiveSmallIntegerField(
+    '身高(cm)',
+    blank=True,
+    null=True,
+    help_text='个人报名填写；团体报名可为空',
+  )
+  weight = models.DecimalField(
+    '体重(kg)',
+    max_digits=5,
+    decimal_places=1,
+    blank=True,
+    null=True,
+    help_text='个人报名填写；团体报名可为空',
+  )
+  work_url = models.URLField(
+    '作品链接',
+    max_length=500,
+    blank=True,
+    default='',
+    help_text='作品展示链接，如视频/主页等',
+  )
   introduction = models.TextField('个人介绍', blank=True, default='')
   avatar = models.ImageField('头像', upload_to='candidates/avatars/')
   vote_count = models.PositiveIntegerField('投票数', default=0)
@@ -139,6 +160,27 @@ class CandidateApplication(models.Model):
     blank=True,
     null=True,
     help_text='个人报名填写；团体报名可为空',
+  )
+  height = models.PositiveSmallIntegerField(
+    '身高(cm)',
+    blank=True,
+    null=True,
+    help_text='个人报名填写；团体报名可为空',
+  )
+  weight = models.DecimalField(
+    '体重(kg)',
+    max_digits=5,
+    decimal_places=1,
+    blank=True,
+    null=True,
+    help_text='个人报名填写；团体报名可为空',
+  )
+  work_url = models.URLField(
+    '作品链接',
+    max_length=500,
+    blank=True,
+    default='',
+    help_text='作品展示链接，如视频/主页等',
   )
   introduction = models.TextField('个人介绍', blank=True, default='')
   avatar = models.ImageField('头像', upload_to='applications/avatars/')

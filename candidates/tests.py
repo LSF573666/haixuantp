@@ -270,6 +270,7 @@ class GroupApplicationTests(TestCase):
     serializer = CandidateApplicationSubmitSerializer(data={
       'registration_type': RegistrationType.GROUP,
       'name': '青春舞团',
+      'work_url': 'https://example.com/works/group',
       'members': [
         {'name': '甲', 'age': 20},
         {'name': '乙', 'age': 21},

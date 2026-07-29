@@ -236,7 +236,8 @@ class CandidateApplicationSubmitView(APIView):
     summary='提交报名申请',
     description=(
       '支持个人报名（individual）与团体报名（group）。'
-      '个人报名须填写姓名、性别、年龄；团体报名须填写团体名称，以及至少 3 名成员的姓名和年龄。'
+      '个人报名须填写姓名、性别、年龄、身高、体重和作品链接；'
+      '团体报名须填写团体名称、作品链接，以及至少 3 名成员的姓名和年龄。'
       '头像可通过 `avatar` 文件上传，或通过 `avatar_url` 传 OSS 直传后的 URL。'
       '展示照片通过 `photos` 传 OSS 直传后的 URL 列表（最多 9 张）。'
       '被驳回后可修改资料后重新提交；已成为候选人也可随时修改资料，每次修改均需后台重新审核。'
@@ -263,6 +264,23 @@ class CandidateApplicationSubmitView(APIView):
             'maximum': 120,
             'description': '年龄（个人报名必填）',
           },
+          'height': {
+            'type': 'integer',
+            'minimum': 50,
+            'maximum': 250,
+            'description': '身高 cm（个人报名必填）',
+          },
+          'weight': {
+            'type': 'number',
+            'minimum': 20,
+            'maximum': 300,
+            'description': '体重 kg（个人报名必填）',
+          },
+          'work_url': {
+            'type': 'string',
+            'format': 'uri',
+            'description': '作品链接（必填）',
+          },
           'members': MEMBER_SCHEMA,
           'introduction': {'type': 'string', 'description': '个人/团体介绍'},
           'avatar': {
@@ -278,7 +296,7 @@ class CandidateApplicationSubmitView(APIView):
             'description': 'OSS 直传后的展示照片 URL 列表；multipart 时可传 JSON 字符串',
           },
         },
-        'required': ['registration_type', 'name'],
+        'required': ['registration_type', 'name', 'work_url'],
       },
       'application/json': {
         'type': 'object',
@@ -300,6 +318,23 @@ class CandidateApplicationSubmitView(APIView):
             'maximum': 120,
             'description': '年龄（个人报名必填）',
           },
+          'height': {
+            'type': 'integer',
+            'minimum': 50,
+            'maximum': 250,
+            'description': '身高 cm（个人报名必填）',
+          },
+          'weight': {
+            'type': 'number',
+            'minimum': 20,
+            'maximum': 300,
+            'description': '体重 kg（个人报名必填）',
+          },
+          'work_url': {
+            'type': 'string',
+            'format': 'uri',
+            'description': '作品链接（必填）',
+          },
           'members': MEMBER_SCHEMA,
           'introduction': {'type': 'string', 'description': '个人/团体介绍'},
           'avatar_url': {'type': 'string', 'description': 'OSS 直传后的头像 URL'},
@@ -310,7 +345,7 @@ class CandidateApplicationSubmitView(APIView):
             'description': 'OSS 直传后的展示照片 URL 列表，最多 9 张',
           },
         },
-        'required': ['registration_type', 'name', 'avatar_url'],
+        'required': ['registration_type', 'name', 'work_url', 'avatar_url'],
       },
     },
     responses={201: CandidateApplicationSerializer},
@@ -381,14 +416,14 @@ class CandidateApplicationStatusView(APIView):
     is_candidate = bool(application and application.candidate_id)
     if application and application.status == ApplicationStatus.REJECTED:
       if application.registration_type == RegistrationType.GROUP:
-        resubmit_hint = '资料被驳回，请修改团体名称、成员信息、介绍或照片后重新提交'
+        resubmit_hint = '资料被驳回，请修改团体名称、成员信息、作品链接、介绍或照片后重新提交'
       else:
-        resubmit_hint = '资料被驳回，请修改姓名、性别、年龄、介绍或照片后重新提交'
+        resubmit_hint = '资料被驳回，请修改姓名、性别、年龄、身高、体重、作品链接、介绍或照片后重新提交'
     elif application and application.status == ApplicationStatus.APPROVED:
       if application.registration_type == RegistrationType.GROUP:
-        resubmit_hint = '可修改团体名称、成员信息、介绍、头像或照片，提交后需后台重新审核'
+        resubmit_hint = '可修改团体名称、成员信息、作品链接、介绍、头像或照片，提交后需后台重新审核'
       else:
-        resubmit_hint = '可修改姓名、性别、年龄、介绍、头像或照片，提交后需后台重新审核'
+        resubmit_hint = '可修改姓名、性别、年龄、身高、体重、作品链接、介绍、头像或照片，提交后需后台重新审核'
     else:
       resubmit_hint = ''
 

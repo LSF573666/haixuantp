@@ -31,8 +31,8 @@ class CandidateMemberInline(admin.TabularInline):
 class CandidateAdmin(admin.ModelAdmin):
   change_form_template = 'admin/candidates/candidate/change_form.html'
   list_display = [
-    'number', 'name', 'registration_type', 'gender', 'age', 'vote_count', 'heat_score',
-    'active_badge', 'created_at',
+    'number', 'name', 'registration_type', 'gender', 'age', 'height', 'weight',
+    'vote_count', 'heat_score', 'active_badge', 'created_at',
   ]
   list_filter = ['is_active', 'registration_type', 'gender', 'created_at']
   search_fields = ['name', 'number']
@@ -158,21 +158,22 @@ class CandidateApplicationMemberInline(admin.TabularInline):
 class CandidateApplicationAdmin(admin.ModelAdmin):
   change_form_template = 'admin/candidates/candidateapplication/change_form.html'
   list_display = [
-    'name', 'registration_type', 'gender', 'age', 'user', 'status_badge',
-    'created_at', 'reviewed_at', 'candidate_link',
+    'name', 'registration_type', 'gender', 'age', 'height', 'weight', 'user',
+    'status_badge', 'created_at', 'reviewed_at', 'candidate_link',
   ]
   list_filter = ['status', 'registration_type', 'gender', 'created_at', 'reviewed_at']
   search_fields = [
     'name', 'user__phone', 'user__nickname',
   ]
   readonly_fields = [
-    'user', 'registration_type', 'name', 'gender', 'age', 'introduction',
-    'avatar_preview', 'status_badge',
+    'user', 'registration_type', 'name', 'gender', 'age', 'height', 'weight',
+    'work_url', 'introduction', 'avatar_preview', 'status_badge',
     'candidate', 'reviewed_at', 'reviewed_by',
     'created_at', 'updated_at', 'reject_reason',
   ]
   fields = [
-    'user', 'registration_type', 'name', 'gender', 'age', 'introduction', 'avatar_preview',
+    'user', 'registration_type', 'name', 'gender', 'age', 'height', 'weight',
+    'work_url', 'introduction', 'avatar_preview',
     'status_badge', 'reject_reason', 'candidate', 'reviewed_at', 'reviewed_by',
     'created_at', 'updated_at',
   ]

@@ -69,7 +69,8 @@ class CandidateListSerializer(CandidateRankMixin, serializers.ModelSerializer):
     model = Candidate
     fields = [
       'id', 'name', 'number', 'registration_type', 'registration_type_display',
-      'gender', 'gender_display', 'age', 'introduction', 'avatar', 'members',
+      'gender', 'gender_display', 'age', 'height', 'weight', 'work_url',
+      'introduction', 'avatar', 'members',
       'vote_count', 'heat_score', 'rank', 'votes_behind_previous', 'is_active',
     ]
 
@@ -87,7 +88,8 @@ class CandidateDetailSerializer(CandidateRankMixin, serializers.ModelSerializer)
     model = Candidate
     fields = [
       'id', 'name', 'number', 'registration_type', 'registration_type_display',
-      'gender', 'gender_display', 'age', 'introduction', 'avatar',
+      'gender', 'gender_display', 'age', 'height', 'weight', 'work_url',
+      'introduction', 'avatar',
       'vote_count', 'heat_score', 'rank', 'votes_behind_previous',
       'is_active', 'photos', 'members', 'created_at', 'updated_at',
     ]
@@ -132,6 +134,26 @@ class CandidateApplicationSubmitSerializer(serializers.Serializer):
   name = serializers.CharField(max_length=100, help_text='个人姓名或团体名称')
   gender = serializers.ChoiceField(choices=Gender.choices, required=False, allow_null=True)
   age = serializers.IntegerField(min_value=1, max_value=120, required=False, allow_null=True)
+  height = serializers.IntegerField(
+    min_value=50,
+    max_value=250,
+    required=False,
+    allow_null=True,
+    help_text='身高(cm)，个人报名必填',
+  )
+  weight = serializers.DecimalField(
+    max_digits=5,
+    decimal_places=1,
+    min_value=20,
+    max_value=300,
+    required=False,
+    allow_null=True,
+    help_text='体重(kg)，个人报名必填',
+  )
+  work_url = serializers.URLField(
+    max_length=500,
+    help_text='作品链接，如视频/主页等',
+  )
   members = ApplicationMemberSubmitSerializer(many=True, required=False, default=list)
   introduction = serializers.CharField(required=False, allow_blank=True, default='')
   avatar = serializers.ImageField(required=False, allow_null=True)
@@ -187,6 +209,10 @@ class CandidateApplicationSubmitSerializer(serializers.Serializer):
         raise serializers.ValidationError({'gender': '个人报名须填写性别'})
       if attrs.get('age') is None:
         raise serializers.ValidationError({'age': '个人报名须填写年龄'})
+      if attrs.get('height') is None:
+        raise serializers.ValidationError({'height': '个人报名须填写身高'})
+      if attrs.get('weight') is None:
+        raise serializers.ValidationError({'weight': '个人报名须填写体重'})
       if members:
         raise serializers.ValidationError({'members': '个人报名无需填写成员'})
       attrs['members'] = []
@@ -197,6 +223,8 @@ class CandidateApplicationSubmitSerializer(serializers.Serializer):
         })
       attrs['gender'] = None
       attrs['age'] = None
+      attrs['height'] = None
+      attrs['weight'] = None
       attrs['members'] = members
 
     return attrs
@@ -218,8 +246,8 @@ class CandidateApplicationSerializer(serializers.ModelSerializer):
     model = CandidateApplication
     fields = [
       'id', 'registration_type', 'registration_type_display',
-      'name', 'gender', 'gender_display', 'age', 'introduction',
-      'avatar', 'photos', 'members',
+      'name', 'gender', 'gender_display', 'age', 'height', 'weight', 'work_url',
+      'introduction', 'avatar', 'photos', 'members',
       'status', 'status_display', 'status_message',
       'reject_reason', 'candidate_id',
       'created_at', 'updated_at', 'reviewed_at',

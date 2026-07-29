@@ -165,6 +165,9 @@ def submit_application(user, validated_data, photos=None):
       application.name = validated_data['name']
       application.gender = validated_data.get('gender')
       application.age = validated_data.get('age')
+      application.height = validated_data.get('height')
+      application.weight = validated_data.get('weight')
+      application.work_url = validated_data.get('work_url', '')
       application.introduction = validated_data.get('introduction', '')
       if avatar_file or avatar_object_key:
         _apply_avatar(application, avatar_file, avatar_object_key)
@@ -190,6 +193,9 @@ def submit_application(user, validated_data, photos=None):
         name=validated_data['name'],
         gender=validated_data.get('gender'),
         age=validated_data.get('age'),
+        height=validated_data.get('height'),
+        weight=validated_data.get('weight'),
+        work_url=validated_data.get('work_url', ''),
         introduction=validated_data.get('introduction', ''),
       )
       _apply_avatar(application, avatar_file, avatar_object_key)
@@ -206,6 +212,9 @@ def _sync_candidate_from_application(candidate, application):
   candidate.registration_type = application.registration_type
   candidate.gender = application.gender
   candidate.age = application.age
+  candidate.height = application.height
+  candidate.weight = application.weight
+  candidate.work_url = application.work_url
   candidate.introduction = application.introduction
   candidate.avatar = application.avatar
   candidate.save()
@@ -237,6 +246,9 @@ def approve_application(application, reviewer):
         registration_type=application.registration_type,
         gender=application.gender,
         age=application.age,
+        height=application.height,
+        weight=application.weight,
+        work_url=application.work_url,
         introduction=application.introduction,
         avatar=application.avatar,
         is_active=True,
