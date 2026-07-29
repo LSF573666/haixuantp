@@ -32,14 +32,29 @@ class CandidateAdmin(admin.ModelAdmin):
   change_form_template = 'admin/candidates/candidate/change_form.html'
   list_display = [
     'number', 'name', 'registration_type', 'gender', 'age', 'height', 'weight',
-    'vote_count', 'heat_score', 'active_badge', 'created_at',
+    'work_url_link', 'vote_count', 'heat_score', 'active_badge', 'created_at',
   ]
   list_filter = ['is_active', 'registration_type', 'gender', 'created_at']
   search_fields = ['name', 'number']
   inlines = [CandidateMemberInline, CandidatePhotoInline]
+  fields = [
+    'number', 'name', 'registration_type', 'gender', 'age', 'height', 'weight',
+    'work_url', 'introduction', 'avatar',
+    'vote_count', 'heat_score', 'is_active', 'active_badge',
+    'created_at', 'updated_at',
+  ]
   readonly_fields = ['vote_count', 'heat_score', 'created_at', 'updated_at', 'active_badge']
   actions = ['deactivate_candidates', 'activate_candidates']
   list_per_page = 50
+
+  @admin.display(description='作品链接')
+  def work_url_link(self, obj):
+    if not obj.work_url:
+      return '-'
+    return format_html(
+      '<a href="{0}" target="_blank" rel="noopener noreferrer">{0}</a>',
+      obj.work_url,
+    )
 
   def get_urls(self):
     urls = super().get_urls()
@@ -158,8 +173,9 @@ class CandidateApplicationMemberInline(admin.TabularInline):
 class CandidateApplicationAdmin(admin.ModelAdmin):
   change_form_template = 'admin/candidates/candidateapplication/change_form.html'
   list_display = [
-    'name', 'registration_type', 'gender', 'age', 'height', 'weight', 'user',
-    'status_badge', 'created_at', 'reviewed_at', 'candidate_link',
+    'name', 'registration_type', 'gender', 'age', 'height', 'weight',
+    'work_url_link', 'user', 'status_badge', 'created_at', 'reviewed_at',
+    'candidate_link',
   ]
   list_filter = ['status', 'registration_type', 'gender', 'created_at', 'reviewed_at']
   search_fields = [
@@ -167,16 +183,25 @@ class CandidateApplicationAdmin(admin.ModelAdmin):
   ]
   readonly_fields = [
     'user', 'registration_type', 'name', 'gender', 'age', 'height', 'weight',
-    'work_url', 'introduction', 'avatar_preview', 'status_badge',
+    'work_url_link', 'introduction', 'avatar_preview', 'status_badge',
     'candidate', 'reviewed_at', 'reviewed_by',
     'created_at', 'updated_at', 'reject_reason',
   ]
   fields = [
     'user', 'registration_type', 'name', 'gender', 'age', 'height', 'weight',
-    'work_url', 'introduction', 'avatar_preview',
+    'work_url_link', 'introduction', 'avatar_preview',
     'status_badge', 'reject_reason', 'candidate', 'reviewed_at', 'reviewed_by',
     'created_at', 'updated_at',
   ]
+
+  @admin.display(description='作品链接')
+  def work_url_link(self, obj):
+    if not obj.work_url:
+      return '-'
+    return format_html(
+      '<a href="{0}" target="_blank" rel="noopener noreferrer">{0}</a>',
+      obj.work_url,
+    )
   inlines = [CandidateApplicationMemberInline, CandidateApplicationPhotoInline]
   actions = ['approve_applications']
 
