@@ -223,7 +223,7 @@ paths:
   /api/candidates/:
     get:
       operationId: candidates_list
-      description: 支持按性别、报名类型筛选，以及按选手名称模糊搜索；可通过 sort_by 按热度值或投票数降序排列。不传 sort_by 时按参赛编号升序。
+      description: 支持按性别、报名类型筛选，以及按选手名称模糊搜索；可通过 sort_by 按综合分、热度值或投票数降序排列。不传 sort_by 时按参赛编号升序。列表中的 rank 始终按综合分（票数×70%+热度×30%）计算。
       summary: 获取候选人列表
       parameters:
       - in: query
@@ -258,9 +258,10 @@ paths:
         schema:
           type: string
           enum:
+          - composite_score
           - heat_score
           - vote_count
-        description: 排序方式：heat_score=按热度值降序，vote_count=按投票数降序；列表不传则按编号升序，排行榜不传则默认按热度值
+        description: 排序方式：composite_score=按综合分降序（票数×70%+热度×30%），heat_score=按热度值降序，vote_count=按投票数降序；列表不传则按编号升序，排行榜不传则默认按综合分
       tags:
       - 候选人
       security:
@@ -481,7 +482,7 @@ paths:
   /api/candidates/ranking/:
     get:
       operationId: candidates_ranking_list
-      description: 排行榜，默认按热度值降序；可通过 sort_by=vote_count 改为按投票数降序。支持 gender、registration_type、name
+      description: 排行榜，默认按综合分降序（票数×70% + 热度×30%）；可通过 sort_by=heat_score / vote_count 改为按热度或投票数降序。支持 gender、registration_type、name
         筛选；不传 registration_type 时返回全部。
       summary: 候选人排行榜
       parameters:
@@ -511,9 +512,10 @@ paths:
         schema:
           type: string
           enum:
+          - composite_score
           - heat_score
           - vote_count
-        description: 排序方式：heat_score=按热度值降序，vote_count=按投票数降序；列表不传则按编号升序，排行榜不传则默认按热度值
+        description: 排序方式：composite_score=按综合分降序（票数×70%+热度×30%），heat_score=按热度值降序，vote_count=按投票数降序；列表不传则按编号升序，排行榜不传则默认按综合分
       tags:
       - 候选人
       security:
@@ -1204,7 +1206,7 @@ paths:
   /candidates/:
     get:
       operationId: candidates_list_2
-      description: 支持按性别、报名类型筛选，以及按选手名称模糊搜索；可通过 sort_by 按热度值或投票数降序排列。不传 sort_by 时按参赛编号升序。
+      description: 支持按性别、报名类型筛选，以及按选手名称模糊搜索；可通过 sort_by 按综合分、热度值或投票数降序排列。不传 sort_by 时按参赛编号升序。列表中的 rank 始终按综合分（票数×70%+热度×30%）计算。
       summary: 获取候选人列表
       parameters:
       - in: query
@@ -1239,9 +1241,10 @@ paths:
         schema:
           type: string
           enum:
+          - composite_score
           - heat_score
           - vote_count
-        description: 排序方式：heat_score=按热度值降序，vote_count=按投票数降序；列表不传则按编号升序，排行榜不传则默认按热度值
+        description: 排序方式：composite_score=按综合分降序（票数×70%+热度×30%），heat_score=按热度值降序，vote_count=按投票数降序；列表不传则按编号升序，排行榜不传则默认按综合分
       tags:
       - 候选人
       security:
@@ -1462,7 +1465,7 @@ paths:
   /candidates/ranking/:
     get:
       operationId: candidates_ranking_list_2
-      description: 排行榜，默认按热度值降序；可通过 sort_by=vote_count 改为按投票数降序。支持 gender、registration_type、name
+      description: 排行榜，默认按综合分降序（票数×70% + 热度×30%）；可通过 sort_by=heat_score / vote_count 改为按热度或投票数降序。支持 gender、registration_type、name
         筛选；不传 registration_type 时返回全部。
       summary: 候选人排行榜
       parameters:
@@ -1492,9 +1495,10 @@ paths:
         schema:
           type: string
           enum:
+          - composite_score
           - heat_score
           - vote_count
-        description: 排序方式：heat_score=按热度值降序，vote_count=按投票数降序；列表不传则按编号升序，排行榜不传则默认按热度值
+        description: 排序方式：composite_score=按综合分降序（票数×70%+热度×30%），heat_score=按热度值降序，vote_count=按投票数降序；列表不传则按编号升序，排行榜不传则默认按综合分
       tags:
       - 候选人
       security:
@@ -2290,6 +2294,11 @@ components:
           minimum: 0
           title: 热度值
           description: 投票+礼物转换的热度
+        composite_score:
+          type: number
+          format: double
+          readOnly: true
+          description: 综合分 = 实际票数×70% + 热度×30%
         rank:
           type: integer
           nullable: true
@@ -2298,7 +2307,7 @@ components:
           type: integer
           nullable: true
           readOnly: true
-          description: 距上一名票数差距；第一名为 null
+          description: 按当前热度不变，追平上一名所差票数；第一名为 null
         is_active:
           type: boolean
           title: 是否参赛
@@ -2325,6 +2334,7 @@ components:
           title: 更新时间
       required:
       - avatar
+      - composite_score
       - created_at
       - gender_display
       - id
@@ -2428,6 +2438,11 @@ components:
           minimum: 0
           title: 热度值
           description: 投票+礼物转换的热度
+        composite_score:
+          type: number
+          format: double
+          readOnly: true
+          description: 综合分 = 实际票数×70% + 热度×30%
         rank:
           type: integer
           nullable: true
@@ -2436,13 +2451,14 @@ components:
           type: integer
           nullable: true
           readOnly: true
-          description: 距上一名票数差距；第一名为 null
+          description: 按当前热度不变，追平上一名所差票数；第一名为 null
         is_active:
           type: boolean
           title: 是否参赛
           description: 取消勾选即下架，前台列表/排行榜不再展示该候选人
       required:
       - avatar
+      - composite_score
       - gender_display
       - id
       - members
@@ -2561,8 +2577,14 @@ components:
           minimum: 0
           title: 热度值
           description: 投票+礼物转换的热度
+        composite_score:
+          type: number
+          format: double
+          readOnly: true
+          description: 综合分 = 实际票数×70% + 热度×30%
       required:
       - avatar
+      - composite_score
       - gender_display
       - id
       - name

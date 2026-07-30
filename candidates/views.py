@@ -23,7 +23,12 @@ from candidates.serializers import (
   CandidateListSerializer,
   CandidateRankingSerializer,
 )
-from candidates.services import build_candidate_rank_map, submit_application
+from candidates.services import (
+  COMPOSITE_ORDERING,
+  annotate_composite_score,
+  build_candidate_rank_map,
+  submit_application,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +68,12 @@ def filter_candidates_by_registration_type(queryset, registration_type):
   return queryset.filter(registration_type=registration_type)
 
 
+SORT_BY_COMPOSITE = 'composite_score'
 SORT_BY_HEAT = 'heat_score'
 SORT_BY_VOTES = 'vote_count'
-SORT_BY_CHOICES = (SORT_BY_HEAT, SORT_BY_VOTES)
+SORT_BY_CHOICES = (SORT_BY_COMPOSITE, SORT_BY_HEAT, SORT_BY_VOTES)
 CANDIDATE_ORDERING = {
+  SORT_BY_COMPOSITE: COMPOSITE_ORDERING,
   SORT_BY_HEAT: ('-heat_score', '-vote_count', 'number'),
   SORT_BY_VOTES: ('-vote_count', '-heat_score', 'number'),
 }
@@ -91,19 +98,21 @@ def apply_candidate_filters(queryset, request):
 
 def validate_sort_by_param(sort_by):
   if sort_by and sort_by not in SORT_BY_CHOICES:
-    raise ValueError('排序参数无效，可选值：heat_score、vote_count')
+    raise ValueError('排序参数无效，可选值：composite_score、heat_score、vote_count')
 
 
 def apply_candidate_ordering(queryset, request, *, default=None):
   """
   按 sort_by 排序。default 为 None 时保持模型默认（编号升序）；
-  排行榜传入 heat_score 作为默认。
+  排行榜传入 composite_score 作为默认。
   """
   sort_by = request.query_params.get('sort_by', '').strip()
   validate_sort_by_param(sort_by)
   key = sort_by or default
   if not key:
     return queryset
+  if key == SORT_BY_COMPOSITE:
+    queryset = annotate_composite_score(queryset)
   return queryset.order_by(*CANDIDATE_ORDERING[key])
 
 
@@ -140,8 +149,9 @@ CANDIDATE_SORT_PARAMETER = OpenApiParameter(
   required=False,
   enum=list(SORT_BY_CHOICES),
   description=(
-    '排序方式：heat_score=按热度值降序，vote_count=按投票数降序；'
-    '列表不传则按编号升序，排行榜不传则默认按热度值'
+    '排序方式：composite_score=按综合分降序（票数×70%+热度×30%），'
+    'heat_score=按热度值降序，vote_count=按投票数降序；'
+    '列表不传则按编号升序，排行榜不传则默认按综合分'
   ),
 )
 
@@ -156,8 +166,9 @@ class CandidateListView(generics.ListAPIView):
     summary='获取候选人列表',
     description=(
       '支持按性别、报名类型筛选，以及按选手名称模糊搜索；'
-      '可通过 sort_by 按热度值或投票数降序排列。'
+      '可通过 sort_by 按综合分、热度值或投票数降序排列。'
       '不传 sort_by 时按参赛编号升序。'
+      '列表中的 rank 始终按综合分（票数×70%+热度×30%）计算。'
     ),
     parameters=[*CANDIDATE_FILTER_PARAMETERS, CANDIDATE_SORT_PARAMETER],
   )
@@ -204,7 +215,8 @@ class CandidateRankingView(APIView):
     tags=['候选人'],
     summary='候选人排行榜',
     description=(
-      '排行榜，默认按热度值降序；可通过 sort_by=vote_count 改为按投票数降序。'
+      '排行榜，默认按综合分降序（票数×70% + 热度×30%）；'
+      '可通过 sort_by=heat_score / vote_count 改为按热度或投票数降序。'
       '支持 gender、registration_type、name 筛选；不传 registration_type 时返回全部。'
     ),
     parameters=[*CANDIDATE_FILTER_PARAMETERS, CANDIDATE_SORT_PARAMETER],
@@ -215,7 +227,7 @@ class CandidateRankingView(APIView):
     try:
       queryset = apply_candidate_filters(queryset, request)
       candidates = apply_candidate_ordering(
-        queryset, request, default=SORT_BY_HEAT,
+        queryset, request, default=SORT_BY_COMPOSITE,
       )
     except ValueError as exc:
       return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)

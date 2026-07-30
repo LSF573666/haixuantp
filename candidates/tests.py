@@ -15,6 +15,7 @@ from candidates.serializers import CandidateApplicationSubmitSerializer
 from candidates.services import (
   approve_application,
   build_candidate_rank_map,
+  calc_composite_score,
   reject_application,
   resolve_avatar_object_key,
   submit_application,
@@ -459,12 +460,22 @@ class CandidateSortByTests(TestCase):
     names = [item['name'] for item in response.json()['results']]
     self.assertEqual(names, ['高票低热', '中等', '高热低票'])
 
-  def test_ranking_default_sort_by_heat(self):
+  def test_list_sort_by_composite_score(self):
+    response = self.client.get('/api/candidates/', {'sort_by': 'composite_score'})
+    self.assertEqual(response.status_code, 200)
+    names = [item['name'] for item in response.json()['results']]
+    # 高热低票 88、高票低热 85、中等 66
+    self.assertEqual(names, ['高热低票', '高票低热', '中等'])
+
+  def test_ranking_default_sort_by_composite(self):
     response = self.client.get('/api/candidates/ranking/')
     self.assertEqual(response.status_code, 200)
     data = response.json()
-    self.assertEqual([item['name'] for item in data], ['高热低票', '中等', '高票低热'])
+    self.assertEqual([item['name'] for item in data], ['高热低票', '高票低热', '中等'])
     self.assertEqual([item['rank'] for item in data], [1, 2, 3])
+    self.assertEqual(data[0]['composite_score'], 88.0)
+    self.assertEqual(data[1]['composite_score'], 85.0)
+    self.assertEqual(data[2]['composite_score'], 66.0)
 
   def test_ranking_sort_by_vote_count(self):
     response = self.client.get('/api/candidates/ranking/', {'sort_by': 'vote_count'})
@@ -517,30 +528,41 @@ class CandidateRankGapTests(TestCase):
   def test_build_candidate_rank_map(self):
     rank_map = build_candidate_rank_map()
 
+    # 综合分：106 / 83 / 77；追平所需票数 = ceil(分差 / 0.7)
     self.assertEqual(rank_map[self.first.id]['rank'], 1)
+    self.assertEqual(rank_map[self.first.id]['composite_score'], 106.0)
     self.assertIsNone(rank_map[self.first.id]['votes_behind_previous'])
     self.assertEqual(rank_map[self.second.id]['rank'], 2)
-    self.assertEqual(rank_map[self.second.id]['votes_behind_previous'], 20)
+    self.assertEqual(rank_map[self.second.id]['composite_score'], 83.0)
+    self.assertEqual(rank_map[self.second.id]['votes_behind_previous'], 33)
     self.assertEqual(rank_map[self.third.id]['rank'], 3)
-    self.assertEqual(rank_map[self.third.id]['votes_behind_previous'], 0)
+    self.assertEqual(rank_map[self.third.id]['composite_score'], 77.0)
+    self.assertEqual(rank_map[self.third.id]['votes_behind_previous'], 9)
+
+  def test_calc_composite_score(self):
+    self.assertEqual(calc_composite_score(100, 120), 106.0)
+    self.assertEqual(calc_composite_score(40, 200), 88.0)
 
   def test_detail_returns_rank_gap(self):
     response = self.client.get(f'/api/candidates/{self.second.id}/')
     self.assertEqual(response.status_code, 200)
     data = response.json()
     self.assertEqual(data['rank'], 2)
-    self.assertEqual(data['votes_behind_previous'], 20)
+    self.assertEqual(data['composite_score'], 83.0)
+    self.assertEqual(data['votes_behind_previous'], 33)
 
   def test_detail_first_place_hides_gap(self):
     response = self.client.get(f'/api/candidates/{self.first.id}/')
     self.assertEqual(response.status_code, 200)
     data = response.json()
     self.assertEqual(data['rank'], 1)
+    self.assertEqual(data['composite_score'], 106.0)
     self.assertIsNone(data['votes_behind_previous'])
 
   def test_list_returns_rank_gap(self):
     response = self.client.get('/api/candidates/')
     self.assertEqual(response.status_code, 200)
     results = {item['id']: item for item in response.json()['results']}
-    self.assertEqual(results[self.second.id]['votes_behind_previous'], 20)
+    self.assertEqual(results[self.second.id]['votes_behind_previous'], 33)
+    self.assertEqual(results[self.second.id]['composite_score'], 83.0)
     self.assertIsNone(results[self.first.id]['votes_behind_previous'])

@@ -19,14 +19,26 @@ MIN_GROUP_MEMBERS = 3
 
 class CandidateRankMixin(serializers.Serializer):
   rank = serializers.SerializerMethodField()
+  composite_score = serializers.SerializerMethodField(
+    help_text='综合分 = 实际票数×70% + 热度×30%',
+  )
   votes_behind_previous = serializers.SerializerMethodField(
-    help_text='距上一名票数差距；第一名为 null',
+    help_text='按当前热度不变，追平上一名所差票数；第一名为 null',
   )
 
   @extend_schema_field(serializers.IntegerField(allow_null=True))
   def get_rank(self, obj):
     info = self._get_rank_map().get(obj.id)
     return info['rank'] if info else None
+
+  @extend_schema_field(serializers.FloatField())
+  def get_composite_score(self, obj):
+    info = self._get_rank_map().get(obj.id)
+    if info and 'composite_score' in info:
+      return info['composite_score']
+    from candidates.services import calc_composite_score
+
+    return calc_composite_score(obj.vote_count, obj.heat_score)
 
   @extend_schema_field(serializers.IntegerField(allow_null=True))
   def get_votes_behind_previous(self, obj):
@@ -71,7 +83,8 @@ class CandidateListSerializer(CandidateRankMixin, serializers.ModelSerializer):
       'id', 'name', 'number', 'registration_type', 'registration_type_display',
       'gender', 'gender_display', 'age', 'height', 'weight', 'work_url',
       'introduction', 'avatar', 'members',
-      'vote_count', 'heat_score', 'rank', 'votes_behind_previous', 'is_active',
+      'vote_count', 'heat_score', 'composite_score',
+      'rank', 'votes_behind_previous', 'is_active',
     ]
 
 
@@ -90,25 +103,38 @@ class CandidateDetailSerializer(CandidateRankMixin, serializers.ModelSerializer)
       'id', 'name', 'number', 'registration_type', 'registration_type_display',
       'gender', 'gender_display', 'age', 'height', 'weight', 'work_url',
       'introduction', 'avatar',
-      'vote_count', 'heat_score', 'rank', 'votes_behind_previous',
+      'vote_count', 'heat_score', 'composite_score',
+      'rank', 'votes_behind_previous',
       'is_active', 'photos', 'members', 'created_at', 'updated_at',
     ]
 
 
 class CandidateRankingSerializer(serializers.ModelSerializer):
   rank = serializers.IntegerField(read_only=True)
+  composite_score = serializers.SerializerMethodField(
+    help_text='综合分 = 实际票数×70% + 热度×30%',
+  )
   gender_display = serializers.CharField(source='get_gender_display', read_only=True)
   registration_type_display = serializers.CharField(
     source='get_registration_type_display',
     read_only=True,
   )
 
+  @extend_schema_field(serializers.FloatField())
+  def get_composite_score(self, obj):
+    score = getattr(obj, 'composite_score', None)
+    if score is not None:
+      return round(float(score), 2)
+    from candidates.services import calc_composite_score
+
+    return calc_composite_score(obj.vote_count, obj.heat_score)
+
   class Meta:
     model = Candidate
     fields = [
       'rank', 'id', 'name', 'number', 'registration_type', 'registration_type_display',
       'gender', 'gender_display', 'age', 'avatar',
-      'vote_count', 'heat_score',
+      'vote_count', 'heat_score', 'composite_score',
     ]
 
 

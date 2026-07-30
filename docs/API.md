@@ -299,9 +299,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 
 | 接口 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
-| `/api/candidates/` | GET | 否 | 候选人列表，支持按性别、报名类型、名称搜索筛选，以及按热度/票数排序 |
-| `/api/candidates/{id}/` | GET | 否 | 候选人详情（含照片、团体成员、排名与距上一名票数差距） |
-| `/api/candidates/ranking/` | GET | 否 | 排行榜，默认按热度；可改为按投票数，支持按性别、报名类型、名称搜索筛选 |
+| `/api/candidates/` | GET | 否 | 候选人列表，支持按性别、报名类型、名称搜索筛选，以及按综合分/热度/票数排序 |
+| `/api/candidates/{id}/` | GET | 否 | 候选人详情（含照片、团体成员、综合排名与追平上一名所需票数） |
+| `/api/candidates/ranking/` | GET | 否 | 排行榜，默认按综合分；可改为按热度或投票数，支持按性别、报名类型、名称搜索筛选 |
 
 **候选人字段说明:**
 
@@ -316,12 +316,15 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `weight` | string\|null | 体重(kg)，一位小数；团体可为空 |
 | `work_url` | string | 作品链接 |
 | `members` | array | 团体成员列表（`name`、`age`）；个人报名为空数组 |
-| `vote_count` | integer | 投票数 |
+| `vote_count` | integer | 投票数（实际票数） |
 | `heat_score` | integer | 热度值（投票 + 礼物转换） |
-| `rank` | integer | 当前排名（与排行榜规则一致） |
-| `votes_behind_previous` | integer\|null | 距上一名的票数差距；**第一名为 `null`**，前端可不展示 |
+| `composite_score` | number | 综合分 = 实际票数 × 70% + 热度 × 30%，保留两位小数 |
+| `rank` | integer | 当前综合排名（与排行榜默认规则一致） |
+| `votes_behind_previous` | integer\|null | 按当前热度不变，追平上一名所差票数（向上取整）；**第一名为 `null`**，前端可不展示 |
 
-**排名规则**（列表/详情中的 `rank` 字段，以及排行榜默认排序）：`heat_score` 降序 → `vote_count` 降序 → `number` 升序。
+**排名规则**（列表/详情中的 `rank` 字段，以及排行榜默认排序）：
+
+综合分 = `vote_count × 0.7 + heat_score × 0.3`，按综合分降序 → `vote_count` 降序 → `number` 升序。
 
 **列表/排行榜筛选与排序参数:**
 
@@ -330,12 +333,14 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 | `gender` | string | 否 | 按性别筛选，可选 `male`、`female` |
 | `registration_type` | string | 否 | 按报名类型筛选，可选 `individual`、`group`；**不传则返回全部** |
 | `name` | string | 否 | 按选手名称模糊搜索（个人姓名或团体名称，不区分大小写）；不传则不过滤 |
-| `sort_by` | string | 否 | 排序方式：`heat_score`=按热度值降序，`vote_count`=按投票数降序。列表不传则按编号升序；排行榜不传则默认按热度值 |
+| `sort_by` | string | 否 | 排序方式：`composite_score`=按综合分降序，`heat_score`=按热度值降序，`vote_count`=按投票数降序。列表不传则按编号升序；排行榜不传则默认按综合分。**注意：无论列表如何排序，返回的 `rank` 始终按综合分规则计算** |
 
 **前端调用示例:**
 
-- 按热度排行榜：`GET /api/candidates/ranking/` 或 `GET /api/candidates/ranking/?sort_by=heat_score`
+- 综合分排行榜（默认）：`GET /api/candidates/ranking/` 或 `GET /api/candidates/ranking/?sort_by=composite_score`
+- 按热度排行榜：`GET /api/candidates/ranking/?sort_by=heat_score`
 - 按投票数排行榜：`GET /api/candidates/ranking/?sort_by=vote_count`
+- 列表按综合分排序（分页）：`GET /api/candidates/?sort_by=composite_score`
 - 列表按热度排序（分页）：`GET /api/candidates/?sort_by=heat_score`
 - 列表按投票数排序（分页）：`GET /api/candidates/?sort_by=vote_count`
 - 按名称搜索：`GET /api/candidates/?name=张三`
@@ -364,6 +369,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
       "members": [],
       "vote_count": 10,
       "heat_score": 15,
+      "composite_score": 11.5,
       "rank": 2,
       "votes_behind_previous": 5,
       "is_active": true
@@ -391,8 +397,9 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
   "avatar": "/media/candidates/avatars/xxx.jpg",
   "vote_count": 80,
   "heat_score": 90,
+  "composite_score": 83.0,
   "rank": 2,
-  "votes_behind_previous": 20,
+  "votes_behind_previous": 33,
   "is_active": true,
   "photos": [],
   "members": [],
@@ -401,7 +408,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
 }
 ```
 
-> 前端展示建议：当 `votes_behind_previous` 不为 `null` 时显示「距上一名还差 X 票」；为 `null`（第一名）时不显示。
+> 前端展示建议：当 `votes_behind_previous` 不为 `null` 时显示「距上一名还差 X 票」；为 `null`（第一名）时不显示。该票数按「热度不变、仅靠增加票数追平上一名综合分」计算。
 
 **第一名详情示例**（`votes_behind_previous` 为 `null`）：
 
@@ -411,6 +418,7 @@ JSON 请求使用 `Content-Type: application/json`；报名提交支持 JSON（O
   "name": "张三",
   "vote_count": 100,
   "heat_score": 120,
+  "composite_score": 106.0,
   "rank": 1,
   "votes_behind_previous": null
 }

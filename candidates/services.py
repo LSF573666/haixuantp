@@ -1,8 +1,10 @@
+from math import ceil
 from urllib.parse import urlparse
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import F, FloatField, Max, Value
+from django.db.models.expressions import ExpressionWrapper
 from django.utils import timezone
 
 from candidates.models import (
@@ -16,6 +18,26 @@ from candidates.models import (
   RegistrationType,
 )
 
+# 综合分权重：实际票数 70% + 热度 30%
+VOTE_WEIGHT = 0.7
+HEAT_WEIGHT = 0.3
+COMPOSITE_ORDERING = ('-composite_score', '-vote_count', 'number')
+
+
+def calc_composite_score(vote_count, heat_score):
+  """综合分 = 实际票数 × 70% + 热度 × 30%。"""
+  return round(vote_count * VOTE_WEIGHT + heat_score * HEAT_WEIGHT, 2)
+
+
+def annotate_composite_score(queryset):
+  """为 queryset 标注综合分字段，便于排序。"""
+  return queryset.annotate(
+    composite_score=ExpressionWrapper(
+      F('vote_count') * Value(VOTE_WEIGHT) + F('heat_score') * Value(HEAT_WEIGHT),
+      output_field=FloatField(),
+    ),
+  )
+
 
 def get_next_candidate_number():
   max_number = Candidate.objects.aggregate(max_num=Max('number'))['max_num']
@@ -24,22 +46,36 @@ def get_next_candidate_number():
 
 def build_candidate_rank_map(queryset=None):
   """
-  按热度排行榜规则计算每位候选人的名次与距上一名票数差距。
-  排序规则与排行榜一致：heat_score 降序，vote_count 降序，number 升序。
+  按综合分规则计算每位候选人的名次与距上一名票数差距。
+  综合分 = vote_count × 70% + heat_score × 30%；
+  同分时 vote_count 降序，再按 number 升序。
+  votes_behind_previous：按当前热度不变，追平上一名所差的票数（向上取整）。
   """
   qs = queryset if queryset is not None else Candidate.objects.filter(is_active=True)
   ordered = list(
-    qs.order_by('-heat_score', '-vote_count', 'number').values('id', 'vote_count'),
+    annotate_composite_score(qs)
+    .order_by(*COMPOSITE_ORDERING)
+    .values('id', 'vote_count', 'heat_score', 'composite_score'),
   )
   rank_map = {}
   for rank, item in enumerate(ordered, start=1):
+    composite = calc_composite_score(item['vote_count'], item['heat_score'])
     if rank == 1:
-      rank_map[item['id']] = {'rank': 1, 'votes_behind_previous': None}
+      rank_map[item['id']] = {
+        'rank': 1,
+        'composite_score': composite,
+        'votes_behind_previous': None,
+      }
       continue
     previous = ordered[rank - 2]
+    previous_score = calc_composite_score(previous['vote_count'], previous['heat_score'])
+    score_gap = previous_score - composite
+    # 仅靠增加票数追平上一名所需票数（热度不变）：Δvote × 0.7 >= score_gap
+    votes_needed = ceil(score_gap / VOTE_WEIGHT) if score_gap > 0 else 0
     rank_map[item['id']] = {
       'rank': rank,
-      'votes_behind_previous': max(0, previous['vote_count'] - item['vote_count']),
+      'composite_score': composite,
+      'votes_behind_previous': votes_needed,
     }
   return rank_map
 
